@@ -1,0 +1,100 @@
+# Installing the APK
+
+Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) and needs
+**Android 7.0 (Nougat) or newer** — any phone from ~2017 on is fine.
+
+---
+
+## 1. Download the APK
+
+The build lives in GitHub Actions, not in the repo. Artifacts are private even on a public
+repository, so you must be signed in as `zxldetch`.
+
+**Easiest: on a computer, then transfer to the phone**
+
+1. Open <https://github.com/zxldetch/atsu-downloader/actions> and pick the newest successful
+   **Build Android APK** run.
+2. Scroll to the bottom of the run summary → **Artifacts** → **`atsu-mobile-apk`** (≈29 MB).
+   It downloads as `atsu-mobile-apk.zip`.
+3. Unzip it. You get a single file: **`atsu-mobile.apk`**.
+4. Get that file onto the phone — Google Drive, Telegram ("send as file", not as photo),
+   or a USB cable. Any of these is fine; the phone just needs to see a `.apk`.
+
+**Phone only (works, but fiddly)**
+
+Sign in to github.com in Chrome, open the same run page, download the artifact, then open
+the Downloads folder and use **Extract** on the zip before tapping the `.apk`.
+
+> Do not rename the file or open it from inside the zip previewer — Android needs the real
+> `.apk` on storage.
+
+---
+
+## 2. Allow the install
+
+Android blocks apps from outside the Play Store by default, per-app. The first time you tap
+the APK you will see one of these:
+
+- **"For your security, your phone is not allowed to install unknown apps from this source"**
+  → tap **Settings** → enable **Allow from this source** → press back. The installer is
+  already waiting.
+- **"Install unknown apps" toggle** → turn it on for *Files* (or *Chrome*, whichever app you
+  are opening the APK from).
+
+Then:
+
+1. Tap **Install** (not "Cancel").
+2. **Play Protect** will most likely say *"Unsafe app blocked"* or warn that the app was not
+   scanned. Tap **More details** → **Install anyway**. This is normal for any sideloaded app;
+   it means "unknown developer", not "known malware".
+3. Tap **Open**.
+
+If Play Protect blocks it without offering a way through, temporarily turn off
+*Play Store → profile → Play Protect → Scan apps with Play Protect*, install, then turn it
+back on.
+
+---
+
+## 3. First run
+
+The APK does **not** ship with demo data — you start with an empty library on purpose.
+
+1. Paste a manga link into the box at the top, e.g. `https://atsu.moe/manga/OaKBx`, and tap
+   **Load**. (A bare id like `OaKBx` works too.)
+2. Tap chapters to select them, or type a range in **Chapter range** (`all`, `1-10`,
+   `1,3,5-7`) and tap **Apply**.
+3. Pick **CBZ** (default, best), **PDF**, or **Images**.
+4. Tap **Download N · CBZ** — the queue opens and shows pages landing.
+5. When a chapter finishes: **Save file** opens Android's share sheet (choose *Files* to put
+   the `.cbz` anywhere, or *Drive*), and **Read** opens it in the built-in reader.
+
+Optional: **Settings → Source → Demo mode** turns on the three bundled sample series, if you
+want to click around without any network.
+
+Permissions you may be asked for: *Photos/Media* — only when you tap **Save to gallery** on
+an `images`-format chapter. Nothing else is requested; nothing is uploaded anywhere.
+
+---
+
+## 4. Updating later
+
+Repeat steps 1–2 with the newer APK. Each CI build carries an increasing `versionCode`, so
+Android installs it straight over the old one and your library, downloads and settings are
+kept.
+
+---
+
+## If it goes wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| *"App not installed"* / *"invalid package"* | Truncated/downloaded-inside-zip file | Re-download and unzip on a computer; the file must be exactly `atsu-mobile.apk` |
+| *"App not installed as package conflicts with existing package"* | An older copy signed with a different key (e.g. an EAS build) | Uninstall the existing Atsu Mobile, then install |
+| **Install** button greyed out | Under ~100 MB free storage, or a work profile | Free up space / install in the personal profile |
+| Play Protect refuses | Default posture for unknown developers | *More details → Install anyway*, or pause Play Protect scanning |
+| Opens to an empty library | Expected — demo mode is off | Paste a manga link |
+| Link fails to load | atsu.moe down, or blocked on your network | Retry; try mobile data |
+| Chapters fail at *0%* | Source/CDN issue or rate limiting | Lower *Settings → Performance* concurrency, retry the job |
+
+iPhone: an APK cannot be installed. Use **Expo Go** with `npx expo start` from a computer, or
+build for iOS through EAS with an Apple Developer account.
