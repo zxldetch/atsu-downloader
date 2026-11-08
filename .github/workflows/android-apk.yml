@@ -26,6 +26,8 @@ jobs:
     name: Assemble release APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write      # required to publish the APK as a release asset
     defaults:
       run:
         working-directory: mobile
@@ -154,3 +156,24 @@ jobs:
           path: mobile/artifacts/atsu-mobile.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish the APK as a release asset
+        # Release assets are downloadable without signing in, unlike workflow
+        # artifacts — and the tag stays put, so the URL below never changes:
+        #   https://github.com/<owner>/<repo>/releases/download/mobile-latest/atsu-mobile.apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NOTES="Sideloadable Android build from \`${GITHUB_SHA:0:7}\` (run #${{ github.run_number }}).
+          Not a store release: signed with the debug keystore, for personal use.
+          Install steps: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/mobile/INSTALL.md"
+          if gh release view mobile-latest >/dev/null 2>&1; then
+            gh release upload mobile-latest artifacts/atsu-mobile.apk --clobber
+            gh release edit mobile-latest --notes "$NOTES"
+          else
+            gh release create mobile-latest artifacts/atsu-mobile.apk \
+              --title "Atsu Mobile — latest APK" \
+              --notes "$NOTES" \
+              --prerelease
+          fi

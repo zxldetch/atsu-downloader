@@ -7,26 +7,20 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## 1. Download the APK
 
-The build lives in GitHub Actions, not in the repo. Artifacts are private even on a public
-repository, so you must be signed in as `zxldetch`.
+Straight to the phone — no login, no unzipping:
 
-**Easiest: on a computer, then transfer to the phone**
+**<https://github.com/zxldetch/atsu-downloader/releases/download/mobile-latest/atsu-mobile.apk>**
 
-1. Open <https://github.com/zxldetch/atsu-downloader/actions> and pick the newest successful
-   **Build Android APK** run.
-2. Scroll to the bottom of the run summary → **Artifacts** → **`atsu-mobile-apk`** (≈29 MB).
-   It downloads as `atsu-mobile-apk.zip`.
-3. Unzip it. You get a single file: **`atsu-mobile.apk`**.
-4. Get that file onto the phone — Google Drive, Telegram ("send as file", not as photo),
-   or a USB cable. Any of these is fine; the phone just needs to see a `.apk`.
+or open the release page and tap the file:
+<https://github.com/zxldetch/atsu-downloader/releases/tag/mobile-latest>
 
-**Phone only (works, but fiddly)**
+The browser will warn that this type of file can harm your device — that is the standard
+Android/Chrome warning for any `.apk`, tap **Download anyway**. The file lands in
+**Downloads** as `atsu-mobile.apk` (~29 MB).
 
-Sign in to github.com in Chrome, open the same run page, download the artifact, then open
-the Downloads folder and use **Extract** on the zip before tapping the `.apk`.
-
-> Do not rename the file or open it from inside the zip previewer — Android needs the real
-> `.apk` on storage.
+*Fallback:* every CI run also keeps the APK as a workflow artifact for 30 days
+(**Actions → Build Android APK → newest run → Artifacts**), but those are private to the
+repository and arrive zipped, so the release link above is the better path.
 
 ---
 

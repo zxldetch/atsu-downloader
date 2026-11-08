@@ -70,6 +70,13 @@ npm run preview        # serve ./dist + proxy atsu.moe on :8080
 
 Three routes, easiest first. None of them require you to own the app-store saga below.
 
+### 0. Just want the current APK?
+
+<https://github.com/zxldetch/atsu-downloader/releases/download/mobile-latest/atsu-mobile.apk>
+
+Every green CI build re-uploads that asset (tag `mobile-latest`), so the link is stable and
+always the newest build. Install steps: [`INSTALL.md`](INSTALL.md).
+
 ### A. GitHub Actions (nothing to install — this is how the current APK was built)
 
 [`.github/workflows/android-apk.yml`](../.github/workflows/android-apk.yml) builds a release
