@@ -11,11 +11,11 @@ on:
       - main
       # Branch builds let a feature branch produce a testable APK before merging.
       - 'arena/**'
+    # `paths-ignore` cannot be combined with `paths`, so docs are excluded by negation.
     paths:
       - 'mobile/**'
+      - '!**/*.md'
       - '.github/workflows/android-apk.yml'
-    paths-ignore:
-      - '**/*.md'
 
 concurrency:
   group: android-apk-${{ github.ref }}
