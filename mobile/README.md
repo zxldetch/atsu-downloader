@@ -66,18 +66,72 @@ npm run build:web      # export the web build (demo mode) to ./dist
 npm run preview        # serve ./dist + proxy atsu.moe on :8080
 ```
 
-## Building an installable APK
+## Getting an APK
 
-Expo Go is fine for development, but a downloader wants a real install:
+Three routes, easiest first. None of them require you to own the app-store saga below.
+
+### A. GitHub Actions (nothing to install)
+
+[`.github/workflows/android-apk.yml`](../.github/workflows/android-apk.yml) builds a release
+APK on GitHub's runners — no Expo account, no Android SDK, no Mac.
+
+1. Merge this branch into `main` (the workflow appears under the **Actions** tab once it is
+   on the default branch).
+2. **Actions → Build Android APK → Run workflow**, or just push a change under `mobile/`.
+3. When the run finishes (~15 min), open it and download the **atsu-mobile-apk** artifact,
+   then rename it to `atsu-mobile.apk` if your browser adds a `.zip`.
+
+It signs with the debug keystore from the generated project, which is fine for personal use.
+
+### B. Cloud build with EAS (works today, needs a free expo.dev account)
 
 ```bash
-npx eas-cli login
-npx eas-cli build -p android --profile preview   # produces a sideloadable .apk
+cd mobile
+npx eas-cli login                                  # or: npx eas-cli register
+npx eas-cli build -p android --profile preview
 ```
 
-`eas.json` already defines the `preview` profile as an APK with internal distribution.
-For iOS you need an Apple Developer account (TestFlight / ad-hoc) — Expo Go works without
-one for development.
+The `preview` profile in [`eas.json`](eas.json) is already `buildType: "apk"` with internal
+distribution, so you get an installable file rather than a Play Store `.aab`. EAS prints a
+build URL; the APK is also in your expo.dev dashboard under **Builds**. On the first build
+it offers to generate a keystore — accept, and Expo keeps it for future releases (that
+account is what lets you ship updates over the top later).
+
+### C. Local build with Gradle
+
+Needs JDK 17+ and the Android SDK (Android Studio, or `sdkmanager` with `ANDROID_HOME` set).
+
+```bash
+cd mobile
+npm run build:apk
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+
+`npm run build:apk` is just `expo prebuild -p android` followed by
+`./gradlew assembleRelease`, so the generated `android/` directory is disposable — delete it
+and the next build recreates it.
+
+Heads-up: the React Native template signs *release* builds with the debug keystore. That
+installs and runs fine for personal use, but before distributing to other people, generate a
+real keystore and wire it into `android/app/build.gradle`:
+
+```bash
+keytool -genkeypair -v -keystore atsu-release.keystore -alias atsu \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+### Installing the APK
+
+1. Copy the `.apk` to the phone (USB, Drive, Telegram — anything).
+2. Tap it in a file manager and allow **Install unknown apps** for that app when prompted.
+3. Play Protect will warn about an app from outside the Play Store; that is expected for a
+   sideloaded downloader — choose **Install anyway**.
+
+To ship an update later, bump `expo.version` (and `android.versionCode` if you build
+locally) so Android treats it as newer and installs over the old one.
+
+> Reminder from the limitations below: do not expect Play Store or App Store approval for
+> this app. Sideloading is the intended route.
 
 ## How it works
 

@@ -12,6 +12,7 @@
     "expo-media-library": "~58.0.13",
     "expo-sharing": "~58.0.22",
     "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
     "jszip": "^3.10.2",
     "pdf-lib": "^1.17.1",
     "react": "19.3.0",
@@ -34,11 +35,13 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "prebuild:android": "expo prebuild -p android --no-install",
+    "build:apk": "npm run prebuild:android && cd android && ./gradlew assembleRelease",
     "build:web": "EXPO_PUBLIC_DEMO=1 expo export -p web --output-dir dist --clear",
     "preview": "node server/preview.mjs",
     "typecheck": "tsc --noEmit",
-    "demo-assets": "python3 scripts/make_demo_pages.py",
-    "test": "jest --watchAll=false"
+    "test": "jest --watchAll=false",
+    "demo-assets": "python3 scripts/make_demo_pages.py"
   },
   "private": true,
   "jest": {

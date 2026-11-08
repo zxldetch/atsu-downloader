@@ -1,0 +1,80 @@
+name: Build Android APK
+
+# Produces a sideloadable release APK from the Expo project in ./mobile.
+# No Expo account and no local Android SDK needed — run it from the Actions tab,
+# or let it run on pushes to main that touch the mobile app.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android-apk.yml'
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Assemble release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install JS dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate the native Android project
+        run: npx expo prebuild -p android --no-install
+
+      - name: Install the NDK version React Native asks for
+        # The runner image already ships an Android SDK, but not always the exact NDK
+        # that react-native pins. Read it out of the generated project instead of
+        # hard-coding a version that will drift with the next SDK upgrade.
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          NDK_VERSION=$(grep -rhoP 'ndkVersion\s*[:=]\s*"\K[0-9]+\.[0-9]+\.[0-9]+' \
+            android/build.gradle android/app/build.gradle 2>/dev/null | head -1 || true)
+          echo "project ndkVersion: ${NDK_VERSION:-<none>}"
+          if [ -n "${NDK_VERSION}" ] && [ ! -d "$SDK/ndk/$NDK_VERSION" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION"
+          fi
+
+      - name: Assemble release APK
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Collect the APK
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/*.apk artifacts/atsu-mobile.apk
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atsu-mobile-apk
+          path: mobile/artifacts/atsu-mobile.apk
+          if-no-files-found: error
+          retention-days: 30
