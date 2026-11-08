@@ -86,8 +86,8 @@ test suite first, so a broken tree fails in seconds rather than at the end of a 
 1. Push any change under `mobile/` (or use **Actions → Build Android APK → Run workflow**).
 2. Open the newest run at
    [github.com/zxldetch/atsu-downloader/actions](https://github.com/zxldetch/atsu-downloader/actions).
-3. Download the **atsu-mobile-apk** artifact at the bottom of the run summary (~30 MB, it
-   arrives as a `.zip` — unzip it to get `atsu-mobile.apk`).
+3. Download the **atsu-mobile-apk** artifact at the bottom of the run summary (~30 MB zipped;
+   the `.apk` inside is ~72 MB — unzip it to get `atsu-mobile.apk`).
 
 It signs with the debug keystore from the generated project, which is fine for personal use.
 Builds take 10–20 minutes including the Gradle cache warm-up.

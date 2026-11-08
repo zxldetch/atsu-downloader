@@ -16,7 +16,9 @@ or open the release page and tap the file:
 
 The browser will warn that this type of file can harm your device — that is the standard
 Android/Chrome warning for any `.apk`, tap **Download anyway**. The file lands in
-**Downloads** as `atsu-mobile.apk` (~29 MB).
+**Downloads** as `atsu-mobile.apk` (**~72 MB** — it is a universal build carrying all four
+CPU architectures, so it runs on any phone without you having to pick a variant. On metered
+data, prefer Wi-Fi.)
 
 *Fallback:* every CI run also keeps the APK as a workflow artifact for 30 days
 (**Actions → Build Android APK → newest run → Artifacts**), but those are private to the
