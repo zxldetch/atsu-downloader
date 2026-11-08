@@ -7,7 +7,10 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      # Branch builds let a feature branch produce a testable APK before merging.
+      - 'arena/**'
     paths:
       - 'mobile/**'
       - '.github/workflows/android-apk.yml'
