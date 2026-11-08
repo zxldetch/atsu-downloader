@@ -64,6 +64,26 @@ jobs:
             yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION"
           fi
 
+      - name: Bundle the JS for release
+        # Gradle shells out to exactly this command; running it separately turns a
+        # vague "process node finished with exit code 1" into a readable error.
+        id: bundle
+        run: |
+          set -o pipefail
+          npx expo export:embed --platform android --dev false --entry-file index.ts \
+            --bundle-output "$RUNNER_TEMP/index.android.bundle" \
+            --assets-dest "$RUNNER_TEMP/res" 2>&1 | tee "$RUNNER_TEMP/bundle.log"
+
+      - name: Report the bundling error
+        if: failure() && steps.bundle.outcome == 'failure'
+        run: |
+          python3 - <<'PY'
+          import os
+          text = open(os.environ["RUNNER_TEMP"] + "/bundle.log", errors="replace").read()
+          tail = "\n".join(text.strip().splitlines()[-30:])
+          print("::error::expo export:embed failed: " + tail.replace("%", "%25").replace("\n", "%0A")[:3500])
+          PY
+
       - name: Assemble release APK
         id: gradle
         working-directory: mobile/android
@@ -81,8 +101,13 @@ jobs:
           path = os.environ["RUNNER_TEMP"] + "/gradle.log"
           text = open(path, errors="replace").read()
           marker = "What went wrong"
-          detail = text.split(marker)[-1] if marker in text else text[-4000:]
-          detail = "\n".join(line.rstrip() for line in detail.strip().splitlines()[:25])
+          if marker in text:
+              before, after = text.rsplit(marker, 1)
+              head = "\n".join(before.strip().splitlines()[-25:])
+              tail = "\n".join(after.strip().splitlines()[:8])
+              detail = head + "\n--- what went wrong ---\n" + tail
+          else:
+              detail = "\n".join(text.strip().splitlines()[-40:])
           detail = detail.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
           print("::error::gradle failed: " + detail[:3500])
           PY
