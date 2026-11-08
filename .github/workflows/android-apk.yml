@@ -37,7 +37,7 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -65,8 +65,35 @@ jobs:
           fi
 
       - name: Assemble release APK
+        id: gradle
         working-directory: mobile/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/gradle.log"
+
+      - name: Surface the Gradle failure
+        # Actions logs sit behind a host some tooling cannot read; annotations are
+        # always available, so push the interesting part of the build output there.
+        if: failure() && steps.gradle.outcome == 'failure'
+        run: |
+          python3 - <<'PY'
+          import os
+          path = os.environ["RUNNER_TEMP"] + "/gradle.log"
+          text = open(path, errors="replace").read()
+          marker = "What went wrong"
+          detail = text.split(marker)[-1] if marker in text else text[-4000:]
+          detail = "\n".join(line.rstrip() for line in detail.strip().splitlines()[:25])
+          detail = detail.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+          print("::error::gradle failed: " + detail[:3500])
+          PY
+
+      - name: Upload the Gradle log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-log
+          path: ${{ runner.temp }}/gradle.log
+          if-no-files-found: ignore
 
       - name: Collect the APK
         run: |
