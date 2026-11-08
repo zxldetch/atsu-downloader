@@ -52,6 +52,20 @@ jobs:
           npx tsc --noEmit
           npx jest --watchAll=false
 
+      - name: Stamp the build number
+        # Without this every CI build is versionCode 1, which makes "install the newer
+        # APK over the old one" ambiguous. The run number is monotonic per repo.
+        run: |
+          python3 - "$GITHUB_RUN_NUMBER" <<'PY'
+          import json, pathlib, sys
+          path = pathlib.Path("app.json")
+          config = json.loads(path.read_text())
+          android = config["expo"].setdefault("android", {})
+          android["versionCode"] = int(sys.argv[1])
+          path.write_text(json.dumps(config, indent=2) + "\n")
+          print(f"android.versionCode = {android['versionCode']}")
+          PY
+
       - name: Generate the native Android project
         run: npx expo prebuild -p android --no-install
 
