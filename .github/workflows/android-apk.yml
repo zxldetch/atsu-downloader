@@ -47,6 +47,11 @@ jobs:
       - name: Install JS dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Typecheck and test
+        run: |
+          npx tsc --noEmit
+          npx jest --watchAll=false
+
       - name: Generate the native Android project
         run: npx expo prebuild -p android --no-install
 
