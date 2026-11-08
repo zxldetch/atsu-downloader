@@ -18,8 +18,10 @@ on:
       - '.github/workflows/android-apk.yml'
 
 concurrency:
-  group: android-apk-${{ github.ref }}
-  cancel-in-progress: true
+  # Keyed by commit: builds for different pushes never cancel each other, and a
+  # stuck run cannot block (or kill) the build for a newer commit.
+  group: android-apk-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   apk:
