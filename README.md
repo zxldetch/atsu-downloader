@@ -29,6 +29,24 @@ Initial GUI view:
   - mixed: `1,3,5-7`
 - Duplicate chapter cleanup during parsing (prevents repeated chapter blocks in listings).
 
+## Mobile app
+
+A React Native (Expo) port lives in [`mobile/`](mobile/README.md). It reimplements the API
+client, scraper, download manager and CBZ/PDF converters in TypeScript and adds what a
+phone needs: a library, an offline reader, and a download queue that survives restarts and
+resumes from whatever pages already landed.
+
+```bash
+cd mobile
+npm install
+npx expo start      # scan the QR code with Expo Go
+```
+
+Paste an atsu.moe link to start, or switch on **Settings → Source → Demo mode** to try the
+queue, reader and CBZ/PDF export against bundled sample series without touching the network.
+See [`mobile/README.md`](mobile/README.md) for the build instructions
+(sideloadable APK), architecture notes and the port's known limitations.
+
 ## Install
 
 ```bash

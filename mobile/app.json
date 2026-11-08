@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Atsu Mobile",
+    "slug": "atsu-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "atsumobile",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0d1117",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d1117"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "moe.atsu.mobile",
+      "infoPlist": {
+        "NSPhotoLibraryAddUsageDescription": "Atsu Mobile saves downloaded manga pages to your photo library when you ask it to."
+      }
+    },
+    "android": {
+      "package": "moe.atsu.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0d1117",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.INTERNET"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-media-library"]
+  }
+}
