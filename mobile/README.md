@@ -70,18 +70,20 @@ npm run preview        # serve ./dist + proxy atsu.moe on :8080
 
 Three routes, easiest first. None of them require you to own the app-store saga below.
 
-### A. GitHub Actions (nothing to install)
+### A. GitHub Actions (nothing to install — this is how the current APK was built)
 
 [`.github/workflows/android-apk.yml`](../.github/workflows/android-apk.yml) builds a release
-APK on GitHub's runners — no Expo account, no Android SDK, no Mac.
+APK on GitHub's runners — no Expo account, no Android SDK, no Mac. It runs `tsc` and the
+test suite first, so a broken tree fails in seconds rather than at the end of a Gradle build.
 
-1. Merge this branch into `main` (the workflow appears under the **Actions** tab once it is
-   on the default branch).
-2. **Actions → Build Android APK → Run workflow**, or just push a change under `mobile/`.
-3. When the run finishes (~15 min), open it and download the **atsu-mobile-apk** artifact,
-   then rename it to `atsu-mobile.apk` if your browser adds a `.zip`.
+1. Push any change under `mobile/` (or use **Actions → Build Android APK → Run workflow**).
+2. Open the newest run at
+   [github.com/zxldetch/atsu-downloader/actions](https://github.com/zxldetch/atsu-downloader/actions).
+3. Download the **atsu-mobile-apk** artifact at the bottom of the run summary (~30 MB, it
+   arrives as a `.zip` — unzip it to get `atsu-mobile.apk`).
 
 It signs with the debug keystore from the generated project, which is fine for personal use.
+Builds take 10–20 minutes including the Gradle cache warm-up.
 
 ### B. Cloud build with EAS (works today, needs a free expo.dev account)
 
