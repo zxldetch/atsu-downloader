@@ -7,6 +7,8 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
+*Build 24 · 2026-11-09 · install over the old app, nothing is lost.*
+
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
 - **New icon**: violet wifi waves with a slash, the A as its dot — offline reading,
@@ -20,7 +22,10 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
   the API lists chapters newest-first.
 - **Theme switching no longer flickers** (no remount, no blank frame).
 - **Update notice**: if a newer build is published, Home shows "Build N is
-  available" with a download button. Android will ask you to confirm the install.
+  available" with a download button, and **Settings → Updates** has a *Check now*
+  button. Android will ask you to confirm the install — no silent self-updating,
+  that is not allowed for sideloaded apps. From this build on you will be told,
+  instead of having to remember the release page.
 
 ## 1. Download the APK
 
