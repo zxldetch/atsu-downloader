@@ -37,7 +37,9 @@ function Router() {
     case 'search':
       return <SearchScreen />;
     case 'shelf':
-      return <ShelfScreen initialTab={route.tab} />;
+      // Keyed by segment so tapping the Shelf tab always lands on the library,
+      // even when the screen was last left on Downloads.
+      return <ShelfScreen key={route.tab ?? 'library'} initialTab={route.tab} />;
     case 'settings':
       return <SettingsScreen />;
     case 'home':
