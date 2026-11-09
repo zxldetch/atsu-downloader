@@ -17,7 +17,15 @@ describe('update check', () => {
     global.fetch = originalFetch;
   });
 
-  it('reads the build number stamped into the app config', () => {
+  it('prefers the build number inlined at bundle time', () => {
+    const previous = process.env.EXPO_PUBLIC_BUILD_NUMBER;
+    process.env.EXPO_PUBLIC_BUILD_NUMBER = '57';
+    expect(currentVersionCode()).toBe(57);
+    if (previous === undefined) delete process.env.EXPO_PUBLIC_BUILD_NUMBER;
+    else process.env.EXPO_PUBLIC_BUILD_NUMBER = previous;
+  });
+
+  it('falls back to the app config when nothing was inlined', () => {
     expect(currentVersionCode()).toBe(41);
   });
 

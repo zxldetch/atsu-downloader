@@ -33,6 +33,10 @@ jobs:
     defaults:
       run:
         working-directory: mobile
+    env:
+      # Baked into the JS bundle so the app always knows its own build number;
+      # version.json (published below) carries the same number for comparison.
+      EXPO_PUBLIC_BUILD_NUMBER: ${{ github.run_number }}
 
     steps:
       - uses: actions/checkout@v4
@@ -197,7 +201,7 @@ jobs:
           Install steps: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/mobile/INSTALL.md"
           if gh release view mobile-latest >/dev/null 2>&1; then
             gh release upload mobile-latest artifacts/atsu-mobile.apk artifacts/version.json --clobber
-            gh release edit mobile-latest --notes "$NOTES"
+            gh release edit mobile-latest --title "Atsu Offline — latest APK" --notes "$NOTES"
           else
             gh release create mobile-latest artifacts/atsu-mobile.apk artifacts/version.json \
               --title "Atsu Offline — latest APK" \

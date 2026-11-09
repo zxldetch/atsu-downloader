@@ -38,11 +38,21 @@ export interface UpdateCheck {
   error: string | null;
 }
 
-/** The `versionCode` stamped by CI into the embedded app config. */
+/**
+ * This install's build number.
+ *
+ * CI exports `EXPO_PUBLIC_BUILD_NUMBER` while bundling, and Expo inlines
+ * `EXPO_PUBLIC_*` values into the bundle, so this is baked in at build time and
+ * cannot drift. The app config is the fallback for dev/web builds.
+ */
 export function currentVersionCode(): number {
+  const inlined = Number(process.env.EXPO_PUBLIC_BUILD_NUMBER ?? '');
+  if (Number.isFinite(inlined) && inlined > 0) return inlined;
+
   const android = (Constants.expoConfig as { android?: { versionCode?: number } } | null)?.android;
   const code = android?.versionCode;
-  if (typeof code === 'number' && Number.isFinite(code)) return code;
+  if (typeof code === 'number' && Number.isFinite(code) && code > 0) return code;
+
   // Web/dev fall back to the semantic version so the UI has something to show.
   const parsed = Number.parseFloat(String(Constants.expoConfig?.version ?? '0'));
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
