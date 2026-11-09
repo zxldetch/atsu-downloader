@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './icons';
 import { Slider } from './Slider';
 import { Toggle } from './ui';
-import { makeStyles, radius, spacing, type } from '../theme';
+import { colors, makeStyles, radius, spacing, type } from '../theme';
 
 export function ReaderSheet({
   open,
@@ -59,7 +59,7 @@ export function ReaderSheet({
             accessibilityLabel="Back"
             style={styles.roundButton}
           >
-            <Icon name="chevron-back" size={20} color="#FFFFFF" />
+            <Icon name="chevron-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.title} accessibilityRole="header">
             Reader
@@ -71,7 +71,7 @@ export function ReaderSheet({
             accessibilityLabel="Close"
             style={styles.roundButton}
           >
-            <Icon name="close" size={20} color="#FFFFFF" />
+            <Icon name="close" size={20} color={colors.text} />
           </Pressable>
         </View>
 
@@ -92,7 +92,7 @@ export function ReaderSheet({
                   <Icon
                     name={option === 'vertical' ? 'reorder-four-outline' : 'copy-outline'}
                     size={16}
-                    color={active ? '#FFFFFF' : '#9BA0A8'}
+                    color={active ? colors.text : colors.textDim}
                   />
                   <Text style={[styles.modeText, active && styles.modeTextOn]}>
                     {option === 'vertical' ? 'Vertical' : 'Paged'}
@@ -142,7 +142,7 @@ export function ReaderSheet({
             accessibilityLabel="Reset reader settings"
             style={styles.resetRow}
           >
-            <Icon name="refresh" size={16} color="#9BA0A8" />
+            <Icon name="refresh" size={16} color={colors.textDim} />
             <Text style={styles.resetText}>Reset reader settings</Text>
           </Pressable>
         </ScrollView>
@@ -151,10 +151,10 @@ export function ReaderSheet({
   );
 }
 
-const styles = makeStyles(() => ({
+const styles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
-    backgroundColor: '#08080A',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: spacing.lg,
@@ -166,7 +166,7 @@ const styles = makeStyles(() => ({
     width: 44,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#3A3C42',
+    backgroundColor: colors.borderStrong,
     marginBottom: spacing.md,
   },
   header: {
@@ -179,14 +179,14 @@ const styles = makeStyles(() => ({
     width: 40,
     height: 40,
     borderRadius: radius.pill,
-    backgroundColor: '#17181C',
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { ...type.display, color: '#FFFFFF', fontSize: 24 },
+  title: { ...type.display, color: colors.text, fontSize: 24 },
   sectionLabel: {
     ...type.tiny,
-    color: '#8A8D93',
+    color: colors.textFaint,
     fontWeight: '700',
     letterSpacing: 1,
     marginBottom: spacing.sm,
@@ -196,21 +196,21 @@ const styles = makeStyles(() => ({
     flex: 1,
     height: 46,
     borderRadius: radius.md,
-    backgroundColor: '#141519',
+    backgroundColor: colors.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  modePillOn: { backgroundColor: '#2A2440' },
-  modeText: { ...type.small, color: '#9BA0A8', fontWeight: '600' },
-  modeTextOn: { color: '#FFFFFF' },
-  divider: { height: 1, backgroundColor: '#1C1D22', marginVertical: spacing.lg },
+  modePillOn: { backgroundColor: colors.accentSoft },
+  modeText: { ...type.small, color: colors.textDim, fontWeight: '600' },
+  modeTextOn: { color: colors.text },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
   resetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: spacing.lg,
   },
-  resetText: { ...type.small, color: '#9BA0A8', fontWeight: '600' },
+  resetText: { ...type.small, color: colors.textDim, fontWeight: '600' },
 }));

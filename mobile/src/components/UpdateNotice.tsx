@@ -11,7 +11,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 
 import { Icon } from './icons';
 import { checkForUpdate, type UpdateCheck } from '../lib/updates';
-import { makeStyles, radius, spacing, type } from '../theme';
+import { colors, makeStyles, radius, spacing, type } from '../theme';
 
 export function useUpdateCheck(auto = true) {
   const [state, setState] = useState<UpdateCheck | null>(null);
@@ -58,7 +58,7 @@ export function UpdateNotice({
         accessibilityLabel="Check for updates"
         style={styles.row}
       >
-        <Icon name="cloud-download-outline" size={16} color="#B5B8BD" />
+        <Icon name="cloud-download-outline" size={16} color={colors.textDim} />
         <Text style={styles.rowText}>{checking ? 'Checking for updates…' : 'Check for updates'}</Text>
       </Pressable>
     ) : null;
@@ -68,7 +68,7 @@ export function UpdateNotice({
     return (
       <View style={styles.card} accessibilityLiveRegion="polite">
         <View style={styles.iconWrap}>
-          <Icon name="cloud-download-outline" size={18} color="#B3A9EC" />
+          <Icon name="cloud-download-outline" size={18} color={colors.accentText} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Build {state.update.versionCode} is available</Text>
@@ -83,7 +83,7 @@ export function UpdateNotice({
           style={({ pressed }) => [styles.action, pressed && { opacity: 0.75 }]}
         >
           <Text style={styles.actionText}>Get</Text>
-          <Icon name="arrow-down-outline" size={14} color="#FFFFFF" />
+          <Icon name="arrow-down-outline" size={14} color={colors.onAccent} />
         </Pressable>
       </View>
     );
@@ -96,7 +96,7 @@ export function UpdateNotice({
       accessibilityLabel="Check for updates"
       style={styles.row}
     >
-      <Icon name="checkmark-circle-outline" size={16} color="#4FBF87" />
+      <Icon name="checkmark-circle-outline" size={16} color={colors.success} />
       <Text style={styles.rowText}>
         {state.error
           ? `Update check failed · ${state.error}`
