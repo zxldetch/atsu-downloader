@@ -193,6 +193,67 @@ describe('Atsu Offline app', () => {
     offline.mockRestore();
   });
 
+  it('moves a whole chapter per arrow, not a page', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
+    });
+    await screen.findByText(/Ch\. 1 · 1 \/ \d+/, {}, { timeout: 4000 });
+
+    // The arrow names the chapter it will open, and lands on its first page —
+    // page turns are the swipe and the bar, not the arrows.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText(/^Next chapter · Chapter 2/));
+    });
+    await screen.findByText(/Ch\. 2 · 1 \/ \d+/, {}, { timeout: 4000 });
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText(/^Previous chapter · Chapter 1/));
+    });
+    await screen.findByText(/Ch\. 1 · 1 \/ \d+/, {}, { timeout: 4000 });
+  });
+
+  it('lists only downloaded chapters under On device, and opens them', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await chooseDownloadMode();
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 2 · Rain, again'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Download 1'));
+    });
+    await waitFor(() => expect(screen.getAllByText('Saved').length).toBeGreaterThan(0), {
+      timeout: 8000,
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Shelf'));
+    });
+
+    // The library record lands once the job is finalised, and the tab counts it.
+    const tab = await screen.findByText('On device · 1', {}, { timeout: 8000 });
+
+    // The section is built from the library record, so it needs no network.
+    const offline = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('no network'));
+    await act(async () => {
+      fireEvent.press(tab);
+    });
+
+    expect(screen.getByText('Chapter 2 · Rain, again')).toBeTruthy();
+    // Only the downloaded chapter is there — chapter 1 was never fetched.
+    expect(screen.queryByText('Chapter 1 · The first delivery')).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 2 · Rain, again'));
+    });
+    await screen.findByText(/Ch\. 2 · 1 \/ \d+/, {}, { timeout: 4000 });
+    offline.mockRestore();
+  });
+
   it('puts the shelf summary directly under its heading', async () => {
     await renderApp();
     await openDemoSeries();

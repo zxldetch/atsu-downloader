@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -32,6 +32,48 @@ import { useApp } from '../store/AppStore';
 import { colors, makeStyles, spacing, type } from '../theme';
 
 const SEAM_HEIGHT = 148;
+
+/**
+ * One page.
+ *
+ * Memoised on purpose: the reader re-renders whenever the visible page changes
+ * (which auto-scroll does constantly), and without this every one of those
+ * renders pushed fresh style arrays into the native image view — visible as a
+ * flicker while the page you are reading is already on screen. `transition` is
+ * 0 for the same reason: a fade-in on every recycled cell is exactly the
+ * blinking this is meant to remove.
+ */
+const PageCell = memo(function PageCell({
+  uri,
+  recyclingKey,
+  width,
+  height,
+  fit,
+  onPress,
+}: {
+  uri: string;
+  recyclingKey: string;
+  width?: number;
+  height: number;
+  fit: 'cover' | 'contain';
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={width ? { width, height } : { width: '100%', height }}
+    >
+      <Image
+        source={{ uri }}
+        style={{ flex: 1, width: '100%' }}
+        contentFit={fit}
+        cachePolicy="memory-disk"
+        recyclingKey={recyclingKey}
+        transition={0}
+      />
+    </Pressable>
+  );
+});
 /** Every floating control in the reader shares this fill — flat, no shadow. */
 const CHROME = 'rgba(12,13,17,0.86)';
 
@@ -102,6 +144,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   const [scrubbing, setScrubbing] = useState(false);
   const offsetRef = useRef(0);
   const pausedUntil = useRef(0);
+  const toggleChrome = useCallback(() => setChrome((value) => !value), []);
   const listRef = useRef<FlatList<ReaderRow>>(null);
   const segmentsRef = useRef<ReaderSegment[]>([]);
   const appendingRef = useRef(false);
@@ -315,17 +358,43 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     [layout.offsets, mode, rows.length, width],
   );
 
-  // Auto-scroll: a small offset per tick, native-driven by the list itself so it
-  // stays smooth. A touch pauses it for a moment instead of switching it off.
+  /**
+   * Auto-scroll, one animation frame at a time.
+   *
+   * It used to add a couple of pixels every 48ms with setInterval: twenty
+   * separate jumps a second, which the eye reads as stutter rather than motion.
+   * Now the offset advances by elapsed time (pixels per second), carrying the
+   * fraction between frames, so the scroll moves continuously at whatever the
+   * display can do. Nothing is animated — every frame sets the exact offset.
+   */
   useEffect(() => {
     if (!autoScrollOn || mode !== 'vertical' || rows.length === 0) return;
-    const step = 1 + config.autoScrollSpeed;
-    const timer = setInterval(() => {
+
+    const pixelsPerSecond = (1 + config.autoScrollSpeed) * 21;
+    let frame = 0;
+    let last = 0;
+    let carry = 0;
+
+    const tick = (now: number) => {
+      frame = requestAnimationFrame(tick);
+      if (!last) {
+        last = now;
+        return;
+      }
+      const elapsed = Math.min(64, now - last);
+      last = now;
       if (Date.now() < pausedUntil.current) return;
-      offsetRef.current += step;
+
+      carry += (pixelsPerSecond * elapsed) / 1000;
+      const whole = Math.floor(carry);
+      if (whole < 1) return;
+      carry -= whole;
+      offsetRef.current += whole;
       listRef.current?.scrollToOffset({ offset: offsetRef.current, animated: false });
-    }, 48);
-    return () => clearInterval(timer);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [autoScrollOn, config.autoScrollSpeed, mode, rows.length]);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -362,7 +431,6 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
 
   const lastSegment = segments[segments.length - 1];
   const upcoming = lastSegment ? nextAfter(lastSegment.chapterId) : null;
-  const previousChapter = prevBefore(segments[0]?.chapterId ?? chapterId);
 
   /** Infinite mode gates every cross-chapter jump. */
   const infinite = config.autoAdvanceChapters;
@@ -428,26 +496,50 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     if (at >= 0) goTo(at, true);
   }, [segments, rows, goTo]);
 
-  const canGoPrev = index > 0 || !!previousChapter;
-  const canGoNext = index < rows.length - 1 || !!upcoming;
+  /** Which chapter the viewport is sitting in — infinite mode holds several. */
+  const activeSegment = useMemo(() => {
+    if (segments.length === 0) return null;
+    let active = segments[0];
+    for (const segment of segments) {
+      const first = firstPageOf(rows, segment.chapterId);
+      if (first >= 0 && first <= index) active = segment;
+    }
+    return active;
+  }, [index, rows, segments]);
 
-  const stepPrev = useCallback(() => {
-    if (index > 0) goTo(index - 1);
-    else if (previousChapter) openChapter(previousChapter.id, 'end');
-  }, [goTo, index, openChapter, previousChapter]);
+  const activeSegmentIndex = activeSegment
+    ? segments.findIndex((segment) => segment.chapterId === activeSegment.chapterId)
+    : -1;
 
-  const stepNext = useCallback(() => {
-    if (index < rows.length - 1) {
-      goTo(index + 1);
+  const beforeFirst = prevBefore(segments[0]?.chapterId ?? chapterId);
+
+  // The arrows move between *chapters*: that is the bigger, slower unit and the
+  // one you reach for while reading. Turning pages is the swipe, the tap-free
+  // scroll, or the bar at the bottom.
+  const canChapterPrev = activeSegmentIndex > 0 || !!beforeFirst;
+  const canChapterNext = activeSegmentIndex < segments.length - 1 || !!upcoming;
+
+  const chapterPrev = useCallback(() => {
+    if (activeSegmentIndex > 0) {
+      goTo(firstPageOf(rows, segments[activeSegmentIndex - 1].chapterId), true);
       return;
     }
-    if (infinite && upcoming) {
+    if (beforeFirst) openChapter(beforeFirst.id);
+  }, [activeSegmentIndex, beforeFirst, goTo, openChapter, rows, segments]);
+
+  const chapterNext = useCallback(() => {
+    if (activeSegmentIndex >= 0 && activeSegmentIndex < segments.length - 1) {
+      goTo(firstPageOf(rows, segments[activeSegmentIndex + 1].chapterId), true);
+      return;
+    }
+    if (!upcoming) return;
+    if (infinite) {
       jumpToNextRef.current = true;
       void appendNext();
       return;
     }
-    if (upcoming) openChapter(upcoming.id);
-  }, [appendNext, goTo, index, infinite, openChapter, rows.length, upcoming]);
+    openChapter(upcoming.id);
+  }, [activeSegmentIndex, appendNext, goTo, infinite, openChapter, rows, segments, upcoming]);
 
   const mangaTitle = manga?.title ?? entry?.title ?? null;
   const headerTitle = useMemo(
@@ -501,10 +593,15 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
                 index: itemIndex,
               }
         }
-        initialNumToRender={1}
-        maxToRenderPerBatch={2}
-        windowSize={3}
-        removeClippedSubviews
+        initialNumToRender={3}
+        maxToRenderPerBatch={4}
+        updateCellsBatchingPeriod={30}
+        // A window of three screens recycled cells under the reader's feet, so
+        // every auto-scroll tick mounted a page and faded it in — the flicker.
+        // A wider window keeps a screen and a half of pages alive either side,
+        // and Android's clipping is off because its detached views flash blank.
+        windowSize={9}
+        removeClippedSubviews={false}
         onScrollBeginDrag={() => {
           // A touch pauses auto-scroll for 2.5s rather than switching it off.
           pausedUntil.current = Date.now() + 2500;
@@ -534,19 +631,14 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
             mode === 'paged' ? height : Math.round(width / Math.max(0.35, item.page.aspect));
 
           return (
-            <Pressable
-              onPress={() => setChrome((value) => !value)}
-              style={mode === 'paged' ? { width, height: '100%' } : { width, height: rowHeight }}
-            >
-              <Image
-                source={{ uri: item.page.uri }}
-                style={{ flex: 1, width: '100%' }}
-                contentFit={mode === 'paged' ? 'contain' : 'cover'}
-                cachePolicy="memory-disk"
-                recyclingKey={item.page.key}
-                transition={90}
-              />
-            </Pressable>
+            <PageCell
+              uri={item.page.uri}
+              recyclingKey={item.page.key}
+              width={mode === 'paged' ? width : undefined}
+              height={rowHeight}
+              fit={mode === 'paged' ? 'contain' : 'cover'}
+              onPress={toggleChrome}
+            />
           );
         }}
         ListFooterComponent={
@@ -666,11 +758,20 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
                 />
               </Pressable>
               <Pressable
-                onPress={stepPrev}
+                onPress={chapterPrev}
                 hitSlop={12}
-                disabled={!canGoPrev}
-                accessibilityLabel={index === 0 && previousChapter ? 'Previous chapter' : 'Previous page'}
-                style={[styles.iconButton, !canGoPrev && { opacity: 0.3 }]}
+                disabled={!canChapterPrev}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  beforeFirst && activeSegmentIndex <= 0
+                    ? `Previous chapter · ${chapterLabel(beforeFirst)}`
+                    : `Previous chapter · ${
+                        activeSegmentIndex > 0
+                          ? segments[activeSegmentIndex - 1].label
+                          : 'none'
+                      }`
+                }
+                style={[styles.iconButton, !canChapterPrev && { opacity: 0.3 }]}
               >
                 <Icon name="arrow-back" size={21} color={colors.text} />
               </Pressable>
@@ -682,13 +783,18 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
                 {scrubbing ? <Text style={styles.pageHint}>dragging</Text> : null}
               </View>
               <Pressable
-                onPress={stepNext}
+                onPress={chapterNext}
                 hitSlop={12}
-                disabled={!canGoNext}
-                accessibilityLabel={
-                  index >= rows.length - 1 && upcoming ? 'Next chapter' : 'Next page'
-                }
-                style={[styles.iconButton, !canGoNext && { opacity: 0.3 }]}
+                disabled={!canChapterNext}
+                accessibilityRole="button"
+                accessibilityLabel={`Next chapter · ${
+                  activeSegmentIndex >= 0 && activeSegmentIndex < segments.length - 1
+                    ? segments[activeSegmentIndex + 1].label
+                    : upcoming
+                      ? chapterLabel(upcoming)
+                      : 'none'
+                }`}
+                style={[styles.iconButton, !canChapterNext && { opacity: 0.3 }]}
               >
                 <Icon name="arrow-forward" size={21} color={colors.text} />
               </Pressable>

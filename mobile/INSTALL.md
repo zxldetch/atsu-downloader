@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 30 · install over the old app, nothing is lost.*
+*Build 31 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -52,6 +52,15 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
   the row says how many pages and Retry resumes from there.
 - **Delete downloads.** Long-press a downloaded chapter on its series page, or
   tap the bin on a finished row in the downloads queue — both ask first.
+- **Auto-scroll is smooth now.** It moves continuously instead of in twenty small
+  jumps a second, and pages either side of the one you are reading stay mounted,
+  so nothing blinks or fades while the page creeps down.
+- **The arrows move chapters.** Left/right always land on the first page of the
+  neighbouring chapter (the label tells you which one). Page turns are the swipe,
+  the page bar or the scrubber.
+- **Shelf → On device.** Every downloaded chapter in one flat list — series,
+  chapter, pages, size, and where you stopped. No connection needed. Tap to read,
+  long-press to delete.
 - **Picking chapters.** The shortcuts now say how much they will pick (All 34,
   Missing 12, Unread 20), light up when that is exactly the current selection,
   and the footer counts pages, not just chapters. Messages (like "those chapters

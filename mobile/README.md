@@ -208,8 +208,31 @@ mid-request could leave a short file at the final name, which the resume check
 then skipped — that is how a "complete" chapter ended up with blank pages. `.part`
 files are ignored by the archive builder and by the reader.
 
-Deleting: long-press a downloaded chapter on the series page, or use the bin on a
-finished row in the downloads queue — both confirm first and remove the files.
+Deleting: long-press a downloaded chapter on the series page, on a row in the
+**On device** tab, or use the bin on a finished row in the downloads queue — all
+three confirm first and remove the files.
+
+### On device
+
+Shelf → **On device** is a flat list of every downloaded chapter, built purely from
+the library record, so it fills in with no network at all. Each row shows the
+series, the chapter label, its page count, format and size, and where you left off
+("page 3 of 24"). Tap to read, long-press to delete. The Library grid still answers
+"which series"; this answers "*what can I read right now*".
+
+### Reader motion
+
+Auto-scroll advances the offset by elapsed time on `requestAnimationFrame` instead
+of adding a couple of pixels every 48ms, so it is continuous motion rather than
+twenty small jumps a second. The list keeps a wider render window
+(`windowSize={9}`, clipping off) so pages either side are already mounted, and the
+page cell is memoised with `transition={0}` — re-rendering on every scroll tick no
+longer pushes new style props into the native image view or fades a page that was
+already on screen. That combination was the flicker.
+
+The two footer arrows move between **chapters** — always starting on the new
+chapter's first page — and their accessibility labels name the chapter they will
+open. Turning pages is the swipe, the page bar, or the scrubber.
 
 ### Reader chrome
 

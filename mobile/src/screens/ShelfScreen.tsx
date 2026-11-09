@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { formatEta, formatSpeed } from '../api/parse';
-import { JobRow, SeriesCard } from '../components/cards';
+import { chapterLabel, formatBytes, formatEta, formatSpeed } from '../api/parse';
+import { JobRow, OfflineChapterRow, SeriesCard } from '../components/cards';
 import { Banner, Button, EmptyState, Segmented } from '../components/ui';
 import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
@@ -11,7 +11,7 @@ import { useApp } from '../store/AppStore';
 import { colors, spacing, type, useThemeName, makeStyles } from '../theme';
 import type { DownloadJob, LibraryEntry } from '../types';
 
-type Segment = 'library' | 'downloads';
+type Segment = 'library' | 'device' | 'downloads';
 type Filter = 'all' | 'reading' | 'offline';
 
 const GUTTER = spacing.lg;
@@ -56,6 +56,57 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
   }, [library, filter]);
 
   const openManga = useCallback((mangaId: string) => nav.push({ name: 'manga', mangaId }), [nav]);
+
+  /**
+   * Every chapter that is already on the device, flattened out of the library.
+   *
+   * The Library grid answers "which series", which is the wrong question when
+   * the connection is gone and you just want something to read. This is the flat
+   * list — one row per downloaded chapter, grouped by series — and it works with
+   * no network at all because it is built from the library record.
+   */
+  const deviceChapters = useMemo(() => {
+    const rows = library.flatMap((entry) =>
+      Object.values(entry.chapters).map((saved) => ({
+        key: `${entry.mangaId}:${saved.chapterId}`,
+        mangaId: entry.mangaId,
+        series: entry.title,
+        chapterId: saved.chapterId,
+        title: saved.chapterTitle,
+        number: saved.chapterNumber,
+        pageCount: saved.pageCount,
+        bytes: saved.bytes,
+        format: saved.savedAs,
+        updatedAt: saved.updatedAt,
+        progress:
+          entry.reading?.chapterId === saved.chapterId
+            ? `page ${Math.min(entry.reading.page, saved.pageCount)} of ${saved.pageCount}`
+            : null,
+      })),
+    );
+    return rows.sort(
+      (a, b) => a.series.localeCompare(b.series) || a.number - b.number,
+    );
+  }, [library]);
+
+  const openChapter = useCallback(
+    (mangaId: string, chapterId: string) => nav.push({ name: 'reader', mangaId, chapterId }),
+    [nav],
+  );
+
+  const confirmDeleteChapter = useCallback(
+    async (row: { mangaId: string; chapterId: string; title: string }) => {
+      const ok = await confirmAsync(
+        `Delete “${row.title}”?`,
+        'The pages are removed from this device. The chapter stays in the series, so you can download it again.',
+        'Delete',
+      );
+      if (!ok) return;
+      await actions.deleteChapter(row.mangaId, row.chapterId);
+      setMessage(`“${row.title}” deleted from this device.`);
+    },
+    [actions],
+  );
 
   const confirmRemove = useCallback(
     async (mangaId: string) => {
@@ -135,13 +186,24 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
           ? `${library.length} series · ${offlineChapters} chapter${
               offlineChapters === 1 ? '' : 's'
             } offline`
-          : `${activeCount} in progress · ${jobs.length} total`
+          : segment === 'device'
+            ? `${offlineChapters} chapter${offlineChapters === 1 ? '' : 's'} · ${
+                deviceChapters.length === 0
+                  ? 'nothing downloaded yet'
+                  : formatBytes(deviceChapters.reduce((sum, row) => sum + row.bytes, 0))
+              } · readable without a connection`
+            : `${activeCount} in progress · ${jobs.length} total`
       }
     >
       <View style={styles.segmentWrap}>
         <Segmented<Segment>
           options={[
             { key: 'library', label: 'Library', icon: 'albums-outline' },
+            {
+              key: 'device',
+              label: offlineChapters > 0 ? `On device · ${offlineChapters}` : 'On device',
+              icon: 'phone-portrait-outline',
+            },
             {
               key: 'downloads',
               label: activeCount > 0 ? `Downloads · ${activeCount}` : 'Downloads',
@@ -210,6 +272,50 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
             visibleLibrary.length > 0 ? (
               <Text style={styles.hint}>Tap a cover to open it · long-press to remove it</Text>
             ) : undefined
+          }
+        />
+      ) : segment === 'device' ? (
+        <FlatList
+          key="device"
+          data={deviceChapters}
+          keyExtractor={(row) => row.key}
+          contentContainerStyle={styles.content}
+          initialNumToRender={10}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          renderItem={({ item }) => (
+            <OfflineChapterRow
+              series={item.series}
+              chapter={chapterLabel({ number: item.number, title: item.title })}
+              meta={`${item.pageCount} pages · ${(item.format ?? 'images').toUpperCase()} · ${formatBytes(
+                item.bytes,
+              )}`}
+              progress={item.progress}
+              onPress={() => openChapter(item.mangaId, item.chapterId)}
+              onLongPress={() =>
+                confirmDeleteChapter({
+                  mangaId: item.mangaId,
+                  chapterId: item.chapterId,
+                  title: item.title,
+                })
+              }
+            />
+          )}
+          ListHeaderComponent={
+            deviceChapters.length > 0 ? (
+              <Text style={styles.deviceHint}>
+                Downloaded chapters, newest series first. Tap to read — long-press to delete.
+              </Text>
+            ) : undefined
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="phone-portrait-outline"
+              title="Nothing on this device"
+              body="Chapters you download show up here, and they open with or without a connection."
+              action="Download something"
+              onAction={() => nav.go('search')}
+            />
           }
         />
       ) : (
@@ -284,6 +390,12 @@ const styles = makeStyles((colors) => ({
   content: { paddingHorizontal: GUTTER, paddingBottom: spacing.xxxl },
   column: { gap: GAP, justifyContent: 'space-between' },
   filterRow: { paddingVertical: spacing.md },
+  deviceHint: {
+    ...type.small,
+    color: colors.textDim,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
   hint: {
     ...type.tiny,
     color: colors.textFaint,

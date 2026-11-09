@@ -340,6 +340,58 @@ function statusColor(status: DownloadJob['status']): string {
   }
 }
 
+/**
+ * A chapter that is already on the device.
+ *
+ * The Library grid answers "which series", which is the wrong question when the
+ * wifi is gone and you want something to read *now*. This is the flat answer:
+ * one row per downloaded chapter, straight into the reader.
+ */
+export const OfflineChapterRow = memo(function OfflineChapterRow({
+  series,
+  chapter,
+  meta,
+  progress,
+  onPress,
+  onLongPress,
+}: {
+  series: string;
+  chapter: string;
+  meta: string;
+  /** e.g. "page 3 of 24" — omitted when the chapter has never been opened. */
+  progress?: string | null;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) {
+  useThemeName();
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={320}
+      accessibilityRole="button"
+      accessibilityLabel={`${series}, ${chapter}${progress ? `, ${progress}` : ''}, on this device`}
+      style={({ pressed }) => [styles.offlineRow, pressed && { backgroundColor: colors.input }]}
+    >
+      <View style={styles.offlinePlate}>
+        <Icon name="book" size={16} color={colors.accentText} />
+      </View>
+      <View style={styles.offlineBody}>
+        <Text style={styles.offlineSeries} numberOfLines={1}>
+          {series}
+        </Text>
+        <Text style={styles.offlineChapter} numberOfLines={1}>
+          {chapter}
+        </Text>
+        <Text style={styles.offlineMeta} numberOfLines={1}>
+          {progress ? `${progress} · ${meta}` : meta}
+        </Text>
+      </View>
+      <Icon name="chevron-forward" size={16} color={colors.textFaint} />
+    </Pressable>
+  );
+});
+
 /** One row in the download queue. */
 export const JobRow = memo(function JobRow({
   job,
@@ -593,6 +645,27 @@ const styles = makeStyles((colors) => ({
   jobStatus: { ...type.tiny, fontWeight: '700', fontSize: 10, letterSpacing: 0.3 },
   jobStatusDetail: { ...type.tiny, color: colors.textFaint, fontSize: 10, fontWeight: '500' },
   jobActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  offlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+  },
+  offlinePlate: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  offlineBody: { flex: 1, gap: 2 },
+  offlineSeries: { ...type.tiny, color: colors.textDim, fontWeight: '600' },
+  offlineChapter: { ...type.small, color: colors.text, fontWeight: '700', fontSize: 15, marginTop: 2 },
+  offlineMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '400', marginTop: 3 },
   jobAction: {
     width: 32,
     height: 32,
