@@ -32,6 +32,8 @@ import { useApp } from '../store/AppStore';
 import { colors, makeStyles, spacing, type } from '../theme';
 
 const SEAM_HEIGHT = 148;
+/** Every floating control in the reader shares this fill — flat, no shadow. */
+const CHROME = 'rgba(12,13,17,0.86)';
 
 /**
  * The reader renders through a virtualised list in both modes.
@@ -632,7 +634,9 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
           </View>
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+            <View style={styles.scrubberWrap}>
             <Slider
+              tone="dark"
               value={rows.length > 1 ? index / (rows.length - 1) : 0}
               steps={Math.max(1, rows.length)}
               onChange={(ratio) =>
@@ -645,6 +649,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
               valueLabel={`${index + 1} / ${rows.length}`}
               label={undefined}
             />
+            </View>
             <View style={styles.footerRow}>
               <Pressable
                 onPress={() => setAutoScrollOn((value) => !value)}
@@ -747,8 +752,9 @@ const styles = makeStyles((colors) => ({
     paddingHorizontal: spacing.xl,
   },
 
-  // Flat chrome: a translucent band edge-to-edge, no boxes, no pills, no
-  // shadows behind the buttons — the glyphs sit straight on the scrim.
+  // Floating chrome: no full-width band behind the controls (that rectangle,
+  // with its soft edge, is what read as a shadow). Each control carries its own
+  // rounded shape instead, so the artwork stays visible between them.
   header: {
     position: 'absolute',
     top: 0,
@@ -756,27 +762,35 @@ const styles = makeStyles((colors) => ({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   iconButton: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: CHROME,
   },
-  titleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  titleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: 13,
+    backgroundColor: CHROME,
+  },
   headerTitle: { ...type.subtitle, color: colors.text, fontSize: 15, textAlign: 'center' },
   headerMeta: {
     ...type.tiny,
@@ -793,7 +807,20 @@ const styles = makeStyles((colors) => ({
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
-  pageText: { flex: 1, alignItems: 'center' },
+  pageText: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    borderRadius: 13,
+    backgroundColor: CHROME,
+  },
+  scrubberWrap: {
+    borderRadius: 16,
+    backgroundColor: CHROME,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   pageLabel: {
     ...type.small,
     color: colors.text,

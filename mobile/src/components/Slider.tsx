@@ -44,6 +44,7 @@ export function Slider({
   label,
   valueLabel,
   disabled,
+  tone = 'auto',
   style,
 }: {
   /** 0..1 */
@@ -57,6 +58,8 @@ export function Slider({
   /** Rendered above the thumb while dragging (e.g. "12 / 233"). */
   valueLabel?: string;
   disabled?: boolean;
+  /** `dark` forces the reader's own palette; it never follows the app theme. */
+  tone?: 'auto' | 'dark';
   style?: StyleProp<ViewStyle>;
 }) {
   const [width, setWidth] = useState(0);
@@ -161,13 +164,15 @@ export function Slider({
       >
         {/* The rounded track clips its own contents, so the fill can never show a
             square corner outside the pill. */}
-        <View style={[styles.track, dragging && styles.trackActive]}>
-          <View style={[styles.fill, { left: INSET, width: fillWidth }]} />
+        <View style={[styles.track, tone === 'dark' && dark.track, dragging && styles.trackActive]}>
+          <View style={[styles.fill, tone === 'dark' && dark.fill, { left: INSET, width: fillWidth }]} />
           {/* The end dot only makes sense while there is still empty track for it
               to label — at the last page the fill has reached the cap. */}
-          {fillWidth + GAP < width - INSET - THUMB_WIDTH - 30 ? <View style={styles.endDot} /> : null}
+          {fillWidth + GAP < width - INSET - THUMB_WIDTH - 30 ? (
+            <View style={[styles.endDot, tone === 'dark' && dark.endDot]} />
+          ) : null}
         </View>
-        <View pointerEvents="none" style={[styles.thumb, { left: thumbX }]} />
+        <View pointerEvents="none" style={[styles.thumb, tone === 'dark' && dark.thumb, { left: thumbX }]} />
         {dragging && valueLabel ? (
           <View pointerEvents="none" style={[styles.bubble, { left: thumbX - 34 }]}>
             <Text style={styles.bubbleText}>{valueLabel}</Text>
@@ -186,6 +191,17 @@ export function MiniBar({ value, style }: { value: number; style?: StyleProp<Vie
     </View>
   );
 }
+
+/**
+ * The reader draws on artwork, not on a themed surface, so its slider ignores the
+ * theme: a translucent white track, white thumb, accent dot.
+ */
+const dark = {
+  track: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  fill: { backgroundColor: '#7C6BE0' },
+  thumb: { backgroundColor: '#FFFFFF' },
+  endDot: { backgroundColor: '#B3A9EC' },
+} as const;
 
 const styles = makeStyles((colors) => ({
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },

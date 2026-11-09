@@ -269,16 +269,35 @@ export async function downloadToFile(
 
   const { File, Paths, Directory } = fs();
   const target = nativeFile(path);
-  const destination = segments.length
-    ? new File(new Directory(Paths.document, ...segments), target.name)
-    : new File(Paths.document, target.name);
 
-  const file = await File.downloadFileAsync(url, destination, {
+  // Download beside the target as `<page>.part`, then move the bytes into place
+  // ourselves. A dropped connection mid-request used to leave a short file at the
+  // *final* name, which the resume check then happily skipped — that is how a
+  // chapter ended up "complete" with blank pages on a bad link.
+  const folder = segments.length
+    ? new Directory(Paths.document, ...segments)
+    : Paths.document;
+  const partial = new File(folder, `${target.name}.part`);
+
+  const downloaded = await File.downloadFileAsync(url, partial, {
     headers: options.headers,
     idempotent: true,
     signal: options.signal,
   });
-  return file.size ?? 0;
+
+  try {
+    if ((downloaded.size ?? 0) <= 0) throw new Error('The server sent an empty page');
+    const bytes = await downloaded.bytes();
+    if (bytes.byteLength === 0) throw new Error('The server sent an empty page');
+    await writeFile(path, bytes);
+    return bytes.byteLength;
+  } finally {
+    try {
+      if (downloaded.exists) downloaded.delete();
+    } catch {
+      // A leftover .part file is ignored by every reader of chapterDir.
+    }
+  }
 }
 
 /**

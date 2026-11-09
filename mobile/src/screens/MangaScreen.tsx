@@ -7,6 +7,8 @@ import { formatBytes, parseChapterSelection } from '../api/parse';
 import { ChapterRow } from '../components/cards';
 import { Icon } from '../components/icons';
 import { Banner, Button, Chip, EmptyState, Segmented, TextField } from '../components/ui';
+import { confirmAsync } from '../lib/confirm';
+import { announce } from '../lib/motion';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import { colors, coverAspect, radius, spacing, type, useThemeName, makeStyles } from '../theme';
@@ -183,6 +185,12 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
     [groupChapters, selection],
   );
 
+  /** Pages in the selection — a better size hint than a bare chapter count. */
+  const selectedPages = useMemo(
+    () => selectedChapters.reduce((sum, chapter) => sum + (chapter.pageCount || 0), 0),
+    [selectedChapters],
+  );
+
   const toggle = useCallback((chapterId: string) => {
     // Haptics is a nicety: web and some devices don't implement it.
     try {
@@ -203,21 +211,35 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
     [mangaId, nav],
   );
 
-  const selectAll = useCallback(
-    () => setSelection(new Set(visibleChapters.map((chapter) => chapter.id))),
-    [visibleChapters],
-  );
-  const clearSelection = useCallback(() => setSelection(new Set()), []);
+  /** Selection changes get a tick of haptics and a spoken count. */
+  const choose = useCallback((ids: string[], label: string) => {
+    setSelection(new Set(ids));
+    void Haptics.selectionAsync().catch(() => {});
+    announce(
+      ids.length === 0 ? 'Selection cleared' : `${label}: ${ids.length} chapter${ids.length === 1 ? '' : 's'} selected`,
+    );
+  }, []);
 
-  const selectUnread = useCallback(() => {
+  const selectAll = useCallback(
+    () => choose(visibleChapters.map((chapter) => chapter.id), 'All'),
+    [choose, visibleChapters],
+  );
+  const clearSelection = useCallback(() => choose([], 'None'), [choose]);
+
+  const unreadChapters = useMemo(() => {
     const maybe = (chapter: Chapter) => !savedIds.has(chapter.id) && !queuedIds.has(chapter.id);
-    setSelection(new Set(visibleChapters.filter(maybe).map((chapter) => chapter.id)));
+    return visibleChapters.filter(maybe);
   }, [queuedIds, savedIds, visibleChapters]);
+
+  const selectUnread = useCallback(
+    () => choose(unreadChapters.map((chapter) => chapter.id), 'Unread'),
+    [choose, unreadChapters],
+  );
 
   /** Every chapter that isn't on the device yet — one tap for a whole back catalogue. */
   const selectMissing = useCallback(
-    () => setSelection(new Set(missingChapters.map((chapter) => chapter.id))),
-    [missingChapters],
+    () => choose(missingChapters.map((chapter) => chapter.id), 'Missing'),
+    [choose, missingChapters],
   );
 
   const applyRange = useCallback(() => {
@@ -239,6 +261,23 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
       setSelection(new Set(sorted.map((chapter) => chapter.id)));
     },
     [groupChapters],
+  );
+
+  /** Long-press a downloaded chapter to free the space it takes. */
+  const deleteDownload = useCallback(
+    async (chapterId: string) => {
+      const saved = entry?.chapters?.[chapterId];
+      if (!saved) return;
+      const ok = await confirmAsync(
+        `Delete “${saved.chapterTitle}”?`,
+        'The pages are removed from this device. Reading it again will stream from atsu.moe.',
+        'Delete',
+      );
+      if (!ok) return;
+      await actions.deleteChapter(mangaId, chapterId);
+      setMessage(`${saved.chapterTitle} deleted from this device.`);
+    },
+    [actions, entry?.chapters, mangaId],
   );
 
   const startDownload = useCallback(() => {
@@ -289,7 +328,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               </Text>
               <Text style={styles.footerHint}>
                 {selection.size > 0
-                  ? `${config.downloadFormat.toUpperCase()} · saved on this device`
+                  ? `${selectedPages} pages · ${config.downloadFormat.toUpperCase()} · stays on this device`
                   : 'Tap chapters, or use a range'}
               </Text>
             </View>
@@ -304,6 +343,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
         ) : undefined
       }
     >
+      <View style={{ flex: 1 }}>
       <FlatList
         data={visibleChapters}
         keyExtractor={(chapter) => chapter.id}
@@ -422,16 +462,38 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 <Button label="Apply" size="sm" onPress={applyRange} />
               </View>
 
+              {/* Every shortcut says how much it would pick, and lights up when
+                  the current selection is exactly that set. */}
               <View style={styles.quickRow}>
-                <Chip label="All" icon="checkmark-done" onPress={selectAll} />
                 <Chip
-                  label={missingChapters.length > 0 ? `Missing ${missingChapters.length}` : 'Missing'}
+                  label={`All ${visibleChapters.length}`}
+                  icon="checkmark-done"
+                  active={
+                    visibleChapters.length > 0 &&
+                    visibleChapters.every((chapter) => selection.has(chapter.id))
+                  }
+                  onPress={selectAll}
+                />
+                <Chip
+                  label={`Missing ${missingChapters.length}`}
                   icon="cloud-download-outline"
+                  active={
+                    missingChapters.length > 0 &&
+                    missingChapters.every((chapter) => selection.has(chapter.id))
+                  }
                   onPress={selectMissing}
                 />
-                <Chip label="Unread" icon="ellipse-outline" onPress={selectUnread} />
+                <Chip
+                  label={`Unread ${unreadChapters.length}`}
+                  icon="ellipse-outline"
+                  active={
+                    unreadChapters.length > 0 &&
+                    unreadChapters.every((chapter) => selection.has(chapter.id))
+                  }
+                  onPress={selectUnread}
+                />
                 <Chip label="Latest 5" icon="sparkles-outline" onPress={() => selectLatest(5)} />
-                <Chip label="None" icon="close" onPress={clearSelection} />
+                <Chip label="Clear" icon="close" onPress={clearSelection} />
               </View>
 
               <View style={styles.formatRow}>
@@ -448,12 +510,6 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 </View>
               </View>
             </View>
-            ) : null}
-
-            {message ? (
-              <Banner tone="warning" onDismiss={() => setMessage(null)}>
-                {message}
-              </Banner>
             ) : null}
 
             {groups.length > 1 ? (
@@ -541,8 +597,10 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               groups.length > 1 && activeGroupId === 'all' ? (item.group ?? null) : null
             }
             onPress={rowMode === 'download' ? toggle : openReader}
+            onLongPress={entry?.chapters?.[item.id] ? deleteDownload : undefined}
           />
         )}
+        onScrollBeginDrag={() => setMessage(null)}
         ListEmptyComponent={
           chapterFilter === 'all' ? (
             <EmptyState
@@ -575,6 +633,17 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
           ) : undefined
         }
       />
+
+      {/* Messages used to live in the list header, so you had to scroll up to
+          read them. They now float over the list, always in view. */}
+      {message ? (
+        <View style={styles.toast} pointerEvents="box-none">
+          <Banner tone="info" onDismiss={() => setMessage(null)}>
+            {message}
+          </Banner>
+        </View>
+      ) : null}
+      </View>
     </Screen>
   );
 }
@@ -669,6 +738,12 @@ const styles = makeStyles((colors) => ({
   listHeaderMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '600' },
   sortButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   filterRow: { paddingBottom: spacing.md },
+  toast: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.md,
+  },
   footerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   footerCount: { ...type.body, color: colors.text, fontWeight: '600' },
   footerHint: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },

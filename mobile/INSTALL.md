@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 28 · install over the old app, nothing is lost.*
+*Build 30 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -41,8 +41,21 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **Calmer layout.** The translucent rectangle around the chapter tools is gone,
   chapter titles are brighter and larger, and the page bar's fill is a flat bar
   that stops short of the thumb instead of a pill spilling past the track.
-- **Icon** now sits on a violet rounded-square plate, so it reads as a shape
-  rather than white lines on black.
+- **Your logo.** The A with the violet slashes, on a light lavender plate so it
+  reads as an icon instead of loose glyphs on a transparent canvas.
+- **Reader controls float.** Each button, the page pill and the page bar have
+  their own rounded shape behind them, and the full-width translucent band is
+  gone — that was the "shadow" you circled.
+- **Poor connections finish.** A page that fails no longer kills the chapter: the
+  downloader keeps retrying the missing pages, keeps what it already fetched, and
+  a half-written file can't masquerade as a page. If something is still missing
+  the row says how many pages and Retry resumes from there.
+- **Delete downloads.** Long-press a downloaded chapter on its series page, or
+  tap the bin on a finished row in the downloads queue — both ask first.
+- **Picking chapters.** The shortcuts now say how much they will pick (All 34,
+  Missing 12, Unread 20), light up when that is exactly the current selection,
+  and the footer counts pages, not just chapters. Messages (like "those chapters
+  are already queued") float over the list instead of living below the fold.
 - **Downloads now run 1 → N.** They used to start at the newest chapter because
   the API lists chapters newest-first.
 - **Theme switching no longer flickers** (no remount, no blank frame).

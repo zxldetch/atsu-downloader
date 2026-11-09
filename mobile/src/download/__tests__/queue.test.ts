@@ -154,16 +154,38 @@ describe('DownloadQueue', () => {
     expect(attempts).toHaveLength(3);
   });
 
-  it('reports an error when retries are exhausted', async () => {
+  it('keeps the pages it did get and names what is missing when a page never lands', async () => {
     state.failures.set('atsu/OaKBx/ch-1/0002.webp', 99);
     const { queue } = makeQueue(config({ maxRetries: 2 }));
 
     queue.enqueue(spec());
-    await waitFor(() => queue.list()[0]?.status === 'error');
+    await waitFor(() => queue.list()[0]?.status === 'error', 15000);
 
     const job = queue.list()[0];
     expect(job.status).toBe('error');
-    expect(job.error).toContain('Failed page 2');
+    // The message says how much is missing and that retry resumes — a chapter is
+    // never reported as done with holes in it.
+    expect(job.error).toContain('1 of 5 pages failed');
+    expect(job.error).toContain('page 2');
+    expect(job.error).toMatch(/Retry/);
+    // The other four stayed on disk for the retry to reuse.
+    expect(state.files.has('atsu/OaKBx/ch-1/0001.webp')).toBe(true);
+    expect(state.files.has('atsu/OaKBx/ch-1/0005.webp')).toBe(true);
+  });
+
+  it('keeps going after a bad minute on the network instead of dying on page one', async () => {
+    // Three failures in a row: more than the per-page retries, so only the
+    // second pass over the chapter can finish it.
+    state.failures.set('atsu/OaKBx/ch-2/0002.webp', 3);
+    const { queue } = makeQueue(config({ maxRetries: 2 }));
+
+    queue.enqueue(spec({ chapterId: 'ch-2', chapterNumber: 2 }));
+    await waitFor(() => queue.list()[0]?.status === 'done', 15000);
+
+    const job = queue.list()[0];
+    expect(job.status).toBe('done');
+    expect(job.pagesDone).toBe(5);
+    expect(state.files.has('atsu/OaKBx/ch-2/0002.webp')).toBe(true);
   });
 
   it('skips pages already on disk, which is what makes it resumable', async () => {

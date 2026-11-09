@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Draw the Atsu Offline icon set.
 
-The mark is a wifi fan with a slash through it, the "A" sitting underneath as the
-dot you would expect above a wifi fan. It is drawn on a violet rounded-square
-plate so it reads as a deliberate shape rather than white lines floating on black.
+The artwork is `assets/logo-source.png` — a dark "A" with two violet slashes,
+supplied as a transparent PNG. It goes on a light lavender rounded-square plate so
+the icon is a shape of its own instead of loose glyphs on a transparent canvas
+(dark artwork vanishes on a phone's dark wallpaper without one).
+
+If the source file is missing, a drawn wifi-fan mark is used instead, so the
+script still produces something sensible.
 
 Run from mobile/:  python3 scripts/make-icons.py
 Needs Pillow (`pip install pillow`). The output files are committed, so this only
@@ -20,10 +24,13 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = pathlib.Path(__file__).resolve().parent.parent
 ASSETS = HERE / "assets"
 
-INK = (13, 14, 18)          # #0D0E12 — the app's canvas
-PLATE_TOP = (126, 114, 201)  # #7E72C9
-PLATE_BOTTOM = (75, 63, 145)  # #4B3F91
-SLASH = (36, 30, 72)         # deep violet ink, softer than black on the plate
+INK = (13, 14, 18)            # #0D0E12 — the app's canvas
+PLATE_TOP = (248, 246, 255)   # #F8F6FF — lavender-white
+PLATE_BOTTOM = (222, 214, 251)  # #DED6FB
+PLATE_RIM = (124, 107, 224)   # #7C6BE0 — the logo's own violet
+SLASH = (36, 30, 72)          # deep violet ink, for the fallback mark
+
+LOGO = ASSETS / "logo-source.png"
 WHITE = (255, 255, 255)
 
 UNIT = 1024
@@ -55,7 +62,7 @@ def plate(size: int, inset_ratio: float = 0.0, radius_ratio: float = 0.29) -> Im
     ImageDraw.Draw(ring).rounded_rectangle(
         [(inset + 2, inset + 2), (size - inset - 3, size - inset - 3)],
         radius,
-        outline=(255, 255, 255, 34),
+        outline=PLATE_RIM + (60,),
         width=3,
     )
     return Image.alpha_composite(tile, ring)
@@ -109,23 +116,65 @@ def mark(size: int, fill: int, invert_dot: bool = False) -> Image.Image:
     return layer
 
 
+def artwork(size: int, share: float) -> Image.Image:
+    """The supplied logo, trimmed to its ink and scaled to `share` of the canvas."""
+    if LOGO.exists():
+        source = Image.open(LOGO).convert("RGBA")
+        alpha = source.split()[3].point(lambda value: 255 if value > 40 else 0)
+        box = alpha.getbbox()
+        if box:
+            source = source.crop(box)
+        target = int(size * share)
+        scale = target / max(source.size)
+        return source.resize(
+            (max(1, int(source.width * scale)), max(1, int(source.height * scale))),
+            Image.LANCZOS,
+        )
+
+    big = mark(size, fill=44)
+    box = big.getbbox()
+    cropped = big.crop(box) if box else big
+    scale = (size * share) / max(cropped.size)
+    return cropped.resize(
+        (max(1, int(cropped.width * scale)), max(1, int(cropped.height * scale))), Image.LANCZOS
+    )
+
+
+def silhouette(size: int, share: float) -> Image.Image:
+    """One-colour copy of the artwork, for Android's themed icon."""
+    if LOGO.exists():
+        source = Image.open(LOGO).convert("RGBA")
+        alpha = source.split()[3]
+        box = alpha.point(lambda value: 255 if value > 40 else 0).getbbox()
+        if box:
+            alpha = alpha.crop(box)
+        mask = alpha.point(lambda value: 255 if value > 40 else 0)
+        shape = Image.new("RGBA", mask.size, (255, 255, 255, 0))
+        shape.putalpha(mask)
+        target = int(size * share)
+        scale = target / max(shape.size)
+        return shape.resize(
+            (max(1, int(shape.width * scale)), max(1, int(shape.height * scale))), Image.LANCZOS
+        )
+
+    layer = mark(size, fill=44, monochrome=True)
+    box = layer.getbbox()
+    cropped = layer.crop(box) if box else layer
+    scale = (size * share) / max(cropped.size)
+    return cropped.resize(
+        (max(1, int(cropped.width * scale)), max(1, int(cropped.height * scale))), Image.LANCZOS
+    )
+
+
 def render(size: int, *, with_plate: bool, bleed: bool = False, share: float = 0.60) -> Image.Image:
     canvas = Image.new("RGBA", (size, size), INK + (255,) if bleed else (0, 0, 0, 0))
     if with_plate:
         canvas = Image.alpha_composite(canvas, plate(size, inset_ratio=0.0 if bleed else 0.04))
 
-    # Draw big, then crop to the artwork and centre it: the fan's bbox is wider
-    # than it is tall, so eyeballing the offset leaves the mark sitting high.
-    big = mark(size, fill=44)
-    box = big.getbbox()
-    artwork = big.crop(box)
-    scale = (size * share) / max(artwork.width, artwork.height)
-    artwork = artwork.resize(
-        (max(1, int(artwork.width * scale)), max(1, int(artwork.height * scale))), Image.LANCZOS
-    )
-    canvas.alpha_composite(
-        artwork, ((size - artwork.width) // 2, (size - artwork.height) // 2)
-    )
+    # Draw/trim big, then centre on the measured bbox — eyeballing the offset
+    # leaves the mark sitting high.
+    art = artwork(size, share)
+    canvas.alpha_composite(art, ((size - art.width) // 2, (size - art.height) // 2))
     return canvas
 
 
@@ -150,12 +199,13 @@ def main() -> None:
     background.alpha_composite(plate(UNIT, inset_ratio=0.0, radius_ratio=0.0))
     background.save(ASSETS / "android-icon-background.png")
     foreground = Image.new("RGBA", (UNIT, UNIT), (0, 0, 0, 0))
-    artwork = mark(int(UNIT * 0.52), fill=44)
-    foreground.alpha_composite(artwork, ((UNIT - artwork.width) // 2, (UNIT - artwork.height) // 2))
+    art = artwork(UNIT, 0.52)
+    foreground.alpha_composite(art, ((UNIT - art.width) // 2, (UNIT - art.height) // 2))
     foreground.save(ASSETS / "android-icon-foreground.png")
 
     mono = Image.new("RGBA", (UNIT, UNIT), (0, 0, 0, 0))
-    mono.alpha_composite(centred(mark(UNIT, fill=44), 0.52))
+    flat = silhouette(UNIT, 0.52)
+    mono.alpha_composite(flat, ((UNIT - flat.width) // 2, (UNIT - flat.height) // 2))
     mono.save(ASSETS / "android-icon-monochrome.png")
 
     render(256, with_plate=True, bleed=False).save(ASSETS / "splash-icon.png")

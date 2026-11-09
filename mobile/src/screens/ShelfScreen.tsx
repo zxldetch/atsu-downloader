@@ -71,6 +71,23 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
     [actions, library],
   );
 
+  /** Deleting a finished download removes the pages, not just the queue row. */
+  const confirmDeleteDownload = useCallback(
+    async (id: string) => {
+      const job = jobs.find((item) => item.id === id);
+      if (!job) return;
+      const ok = await confirmAsync(
+        `Delete “${job.chapterTitle}”?`,
+        'The downloaded pages are removed from this device. The chapter stays in the series, so you can download it again.',
+        'Delete',
+      );
+      if (!ok) return;
+      await actions.deleteChapter(job.mangaId, job.chapterId);
+      actions.removeJob(job.id);
+    },
+    [actions, jobs],
+  );
+
   const downloads = useMemo(
     () =>
       [...jobs].sort((a, b) => {
@@ -213,6 +230,7 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
               onCancel={actions.cancelJob}
               onRetry={actions.retryJob}
               onRemove={actions.removeJob}
+              onDelete={confirmDeleteDownload}
               onExport={handleExport}
             />
           )}

@@ -193,6 +193,31 @@ no network opens the pages instead of "series not available". While offline,
 series pages fall back to the downloaded chapters (`MangaScreen`'s
 `offlineManga`), and "next chapter" walks the chapters that are actually on disk.
 
+### Downloads that survive a bad connection
+
+Pages are fetched in **passes** over whatever is still missing rather than one
+all-or-nothing loop: a page that keeps failing after its retries only fails that
+page, the next pass picks it up again, and the chapter is never reported as done
+with holes in it. What is left over leaves the job in `error` with a message like
+`3 of 40 pages failed — tap Retry, it picks up where this left off`, and the pages
+already on disk are reused.
+
+Each page is downloaded to `<page>.part` and only moved into place once the bytes
+are verified non-empty (`storage.downloadToFile`). Before, a connection dropping
+mid-request could leave a short file at the final name, which the resume check
+then skipped — that is how a "complete" chapter ended up with blank pages. `.part`
+files are ignored by the archive builder and by the reader.
+
+Deleting: long-press a downloaded chapter on the series page, or use the bin on a
+finished row in the downloads queue — both confirm first and remove the files.
+
+### Reader chrome
+
+The controls float: every button, the page pill and the scrubber sit on their own
+rounded shape, and there is no full-width translucent band (that rectangle, with
+its soft edge, was reading as a drop shadow). The slider has a `dark` tone so it
+keeps the reader's palette instead of following the app theme.
+
 ### Updates
 
 Every build is signed with the committed key in `mobile/keys/atsu-offline.keystore`

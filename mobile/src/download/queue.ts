@@ -352,13 +352,17 @@ export class DownloadQueue {
         onDisk.set(file.path.split('/').pop() as string, file.size);
       }
 
+      const pageName = (page: Page) =>
+        storage
+          .pagePath(job.mangaId, job.chapterId, page.number, extensionFor(page.image))
+          .split('/')
+          .pop() as string;
+
       let done = 0;
       let bytes = 0;
       // Pages already on disk count immediately, so progress starts out honest.
       for (const page of pages) {
-        const size = onDisk.get(
-          storage.pagePath(job.mangaId, job.chapterId, page.number, extensionFor(page.image)).split('/').pop() as string,
-        );
+        const size = onDisk.get(pageName(page));
         if (size && size > 0) {
           done += 1;
           bytes += size;
@@ -390,36 +394,90 @@ export class DownloadQueue {
         );
       };
 
-      await pool(pages, Math.max(1, config.concurrentImages), async (page) => {
-        if (signal.aborted) throw new Error('canceled');
+      /** Pages whose file is not on disk yet (`.part` files never count). */
+      const pendingPages = async (): Promise<Page[]> => {
+        const present = new Set(
+          (await storage.listDir(dir))
+            .filter((file) => !file.path.endsWith('.part') && file.size > 0)
+            .map((file) => file.path.split('/').pop() as string),
+        );
+        return pages.filter((page) => !present.has(pageName(page)));
+      };
 
-        const path = storage.pagePath(job.mangaId, job.chapterId, page.number, extensionFor(page.image));
-        const name = path.split('/').pop() as string;
+      /**
+       * Download in passes.
+       *
+       * One dropped request on a slow link used to abort the whole chapter and
+       * throw away the pages that had already landed. Now a failing page only
+       * fails that page: the remaining passes pick up whatever is still missing,
+       * so a flaky connection converges instead of dying. Whatever is missing at
+       * the end leaves the job in `error` with the pages kept on disk, which is
+       * exactly the state a retry resumes from.
+       */
+      const PASSES = 3;
+      let lastFailure: string | null = null;
 
-        // Already counted above.
-        if ((onDisk.get(name) ?? 0) > 0) return;
+      for (let pass = 0; pass < PASSES; pass += 1) {
+        const pending = await pendingPages();
+        if (pending.length === 0) break;
 
-        let lastError: unknown = null;
-        for (let attempt = 0; attempt < Math.max(1, config.maxRetries); attempt += 1) {
+        const failures: string[] = [];
+        await pool(pending, Math.max(1, config.concurrentImages), async (page) => {
           if (signal.aborted) throw new Error('canceled');
-          try {
-            const written = await storage.downloadToFile(pageImageUrl(page), path, { signal });
-            done += 1;
-            bytes += written;
-            report();
-            return;
-          } catch (error) {
-            lastError = error;
+
+          const path = storage.pagePath(
+            job.mangaId,
+            job.chapterId,
+            page.number,
+            extensionFor(page.image),
+          );
+
+          let lastError: unknown = null;
+          for (let attempt = 0; attempt < Math.max(1, config.maxRetries); attempt += 1) {
             if (signal.aborted) throw new Error('canceled');
-            if (attempt < config.maxRetries - 1) {
-              await wait(config.retryDelay * 1000 * 2 ** attempt, signal);
+            try {
+              const written = await storage.downloadToFile(pageImageUrl(page), path, { signal });
+              done += 1;
+              bytes += written;
+              report();
+              return;
+            } catch (error) {
+              lastError = error;
+              if (signal.aborted) throw new Error('canceled');
+              if (attempt < config.maxRetries - 1) {
+                await wait(config.retryDelay * 1000 * 2 ** attempt, signal);
+              }
             }
           }
-        }
-        throw new Error(
-          `Failed page ${page.number}: ${lastError instanceof Error ? lastError.message : 'unknown error'}`,
+
+          failures.push(
+            `page ${page.number} (${lastError instanceof Error ? lastError.message : 'unknown error'})`,
+          );
+        });
+
+        if (failures.length === 0) break;
+
+        lastFailure = failures[0];
+        this.options.onLog?.(
+          `${job.chapterTitle}: ${failures.length} page(s) failed on pass ${pass + 1}, retrying`,
         );
-      });
+        // Slow links usually recover: a short pause beats hammering the CDN.
+        await wait(700 * (pass + 1), signal);
+      }
+
+      const stillMissing = await pendingPages();
+      const onDiskFiles = await storage.listDir(dir);
+      done = onDiskFiles.filter((file) => !file.path.endsWith('.part') && file.size > 0).length;
+      bytes = onDiskFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+      this.patch(job.id, { pagesDone: done, bytes }, false);
+
+      if (stillMissing.length > 0) {
+        throw new Error(
+          `${stillMissing.length} of ${pages.length} pages failed${
+            lastFailure ? ` (${lastFailure})` : ''
+          } — tap Retry, it picks up where this left off`,
+        );
+      }
 
       this.patch(job.id, { pagesDone: pages.length, bytes });
 
@@ -451,7 +509,8 @@ export class DownloadQueue {
       return dir;
     }
 
-    const files = await storage.listDir(dir);
+    // A half-written page (`0007.webp.part`) must never end up in an archive.
+    const files = (await storage.listDir(dir)).filter((file) => !file.path.endsWith('.part'));
     if (files.length === 0) throw new Error('No pages on disk to package');
 
     // Reading a 40-page chapter one file at a time was the tail stall that made

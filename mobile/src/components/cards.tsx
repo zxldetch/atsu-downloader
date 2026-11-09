@@ -235,6 +235,7 @@ export const ChapterRow = memo(function ChapterRow({
   saved,
   groupLabel,
   onPress,
+  onLongPress,
 }: {
   chapter: Chapter;
   mode: 'read' | 'download';
@@ -244,6 +245,8 @@ export const ChapterRow = memo(function ChapterRow({
   /** Shown only in the "all groups" view, where numbers repeat. */
   groupLabel?: string | null;
   onPress: (chapterId: string) => void;
+  /** Offered for downloaded chapters: delete the files off the device. */
+  onLongPress?: (chapterId: string) => void;
 }) {
   useThemeName();
   const checked = mode === 'download' ? selected : saved;
@@ -258,6 +261,8 @@ export const ChapterRow = memo(function ChapterRow({
   return (
     <Pressable
       onPress={() => onPress(chapter.id)}
+      onLongPress={onLongPress ? () => onLongPress(chapter.id) : undefined}
+      delayLongPress={320}
       style={({ pressed }) => [styles.chapterRow, pressed && { backgroundColor: colors.card }]}
       accessibilityRole={mode === 'download' ? 'checkbox' : 'button'}
       accessibilityState={mode === 'download' ? { checked: selected } : undefined}
@@ -343,6 +348,7 @@ export const JobRow = memo(function JobRow({
   onCancel,
   onRetry,
   onRemove,
+  onDelete,
   onExport,
 }: {
   job: DownloadJob;
@@ -351,6 +357,8 @@ export const JobRow = memo(function JobRow({
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
   onRemove: (id: string) => void;
+  /** Finished downloads: remove the pages from the device, not just the row. */
+  onDelete?: (id: string) => void;
   onExport?: (id: string) => void;
 }) {
   useThemeName();
@@ -463,9 +471,9 @@ export const JobRow = memo(function JobRow({
         ) : null}
         {job.status === 'done' ? (
           <Pressable
-            onPress={() => onRemove(job.id)}
+            onPress={() => (onDelete ? onDelete(job.id) : onRemove(job.id))}
             hitSlop={8}
-            accessibilityLabel="Clear from queue"
+            accessibilityLabel={onDelete ? `Delete downloaded ${job.chapterTitle}` : 'Clear from queue'}
             style={styles.jobAction}
           >
             <Icon name="close" size={15} color={colors.textFaint} />
