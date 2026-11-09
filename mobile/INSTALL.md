@@ -7,17 +7,20 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-- **Scanlation groups** — open a series posted by more than one group (e.g. Iron
-  Season in demo mode) and a `Scanlation group` row appears above the chapters.
-  Pick `Delta Scans` and only Delta's chapters are listed, selected and
-  downloaded. Your choice is remembered per series.
-- **Themes** — Settings → Appearance → `Normal` (atsu Midnight), `Dark` (true
-  black, OLED) or `Light` (daylight). The switch is instant and keeps you on the
-  screen you were on.
-- **Opening animation** — the logo rises out of the black splash while your shelf
-  is restored, then fades away. It is skipped if you use Reduce Motion.
-- **New icon** — plain black with the white "A" and a violet dot; the old
-  template's guide rings are gone.
+- **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
+  straight over the old build and keeps your library).
+- **New icon**: violet wifi waves with a slash, the A as its dot — offline reading,
+  atsu mark.
+- **Reader**: arrows step into the previous/next chapter at the edges, an
+  "Infinite mode" switch, auto-scroll with a 1-10 speed slider, and a draggable
+  page bar in atsu's style that follows your finger exactly. Tap the title pill to
+  jump back to the series page. A new Reader settings sheet (bottom panel) holds
+  all of it.
+- **Downloads now run 1 → N.** They used to start at the newest chapter because
+  the API lists chapters newest-first.
+- **Theme switching no longer flickers** (no remount, no blank frame).
+- **Update notice**: if a newer build is published, Home shows "Build N is
+  available" with a download button. Android will ask you to confirm the install.
 
 ## 1. Download the APK
 
@@ -119,7 +122,7 @@ kept.
 | Symptom | Cause | Fix |
 |---|---|---|
 | *"App not installed"* / *"invalid package"* | Truncated/downloaded-inside-zip file | Re-download and unzip on a computer; the file must be exactly `atsu-mobile.apk` |
-| *"App not installed as package conflicts with existing package"* | An older copy signed with a different key (e.g. an EAS build) | Uninstall the existing Atsu Mobile, then install |
+| *"App not installed as package conflicts with existing package"* | An older copy signed with a different key (e.g. an EAS build) | Uninstall the existing Atsu Offline, then install |
 | **Install** button greyed out | Under ~100 MB free storage, or a work profile | Free up space / install in the personal profile |
 | Play Protect refuses | Default posture for unknown developers | *More details → Install anyway*, or pause Play Protect scanning |
 | Opens to an empty library | Expected — demo mode is off | Paste a manga link |

@@ -7,13 +7,14 @@ import { Icon, type IconName } from '../components/icons';
 import { Banner, Button, Chip, EmptyState, SectionHeader, TextField } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type, makeStyles } from '../theme';
+import { colors, radius, spacing, type, useThemeName, makeStyles } from '../theme';
 import type { LibraryEntry } from '../types';
 
 /** Up to this many links can be pasted at once. */
 const MAX_BULK = 10;
 
 export function SearchScreen() {
+  useThemeName();
   const { library, config, loadingManga, lastError, actions } = useApp();
   const nav = useNav();
   const [query, setQuery] = useState('');

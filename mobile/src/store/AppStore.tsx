@@ -357,8 +357,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const queue = queueRef.current;
       if (!queue) return 0;
 
+      // Reading order, always: atsu's API lists newest first, and a queue that
+      // runs 200 → 1 is both wrong and useless for a binge read.
+      const ordered = [...chapters].sort(
+        (a, b) => a.number - b.number || a.index - b.index,
+      );
+
       let started = 0;
-      for (const chapter of chapters) {
+      for (const chapter of ordered) {
         const id = jobId(manga.id, chapter.id, format);
         const existing = queue.list().find((job) => job.id === id);
         if (existing && (existing.status === 'done' || existing.status === 'downloading')) {

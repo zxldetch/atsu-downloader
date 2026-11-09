@@ -1,3 +1,4 @@
+import React, { createContext, useContext } from 'react';
 import { StyleSheet } from 'react-native';
 import type { ImageStyle, TextStyle, ViewStyle } from 'react-native';
 
@@ -139,6 +140,17 @@ export const palettes: Record<ThemeName, Palette> = {
   },
 };
 
+/**
+ * Screens and rows consume this so a palette swap *re-renders* them in place.
+ * Keying the tree instead would remount every list (losing scroll position and
+ * flashing covers, which is exactly the flicker this replaced).
+ */
+export const ThemeContext = createContext<ThemeName>('normal');
+
+export function useThemeName(): ThemeName {
+  return useContext(ThemeContext);
+}
+
 export const THEME_OPTIONS: { key: ThemeName; label: string; hint: string }[] = [
   { key: 'normal', label: 'Normal', hint: 'atsu.moe Midnight' },
   { key: 'dark', label: 'Dark', hint: 'True-black OLED' },
@@ -216,18 +228,23 @@ export const radius = {
   pill: 999,
 } as const;
 
+// Android adds extra font padding by default, which makes otherwise-identical
+// labels sit a pixel or two high. Every text style opts out so baselines line up
+// with the icons and numbers beside them.
+const tight = { includeFontPadding: false } as const;
+
 export const type = {
   /** Wordmark / boot mark. */
-  brand: { fontSize: 22, fontWeight: '800' as const, letterSpacing: 0.6 },
-  display: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5 },
-  title: { fontSize: 21, fontWeight: '700' as const, letterSpacing: -0.3 },
+  brand: { ...tight, fontSize: 22, fontWeight: '800' as const, letterSpacing: 0.6 },
+  display: { ...tight, fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5 },
+  title: { ...tight, fontSize: 21, fontWeight: '700' as const, letterSpacing: -0.3 },
   /** Section headers: atsu sets these large and near-white ("Continue Reading ›"). */
-  section: { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.4 },
-  subtitle: { fontSize: 15, fontWeight: '600' as const },
-  body: { fontSize: 14, fontWeight: '400' as const },
-  small: { fontSize: 12, fontWeight: '500' as const },
-  tiny: { fontSize: 11, fontWeight: '600' as const },
-  mono: { fontSize: 12, fontVariant: ['tabular-nums'] as const },
+  section: { ...tight, fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.4 },
+  subtitle: { ...tight, fontSize: 15, fontWeight: '600' as const },
+  body: { ...tight, fontSize: 14, fontWeight: '400' as const },
+  small: { ...tight, fontSize: 12, fontWeight: '500' as const },
+  tiny: { ...tight, fontSize: 11, fontWeight: '600' as const },
+  mono: { ...tight, fontSize: 12, fontVariant: ['tabular-nums'] as const },
 } as const;
 
 /** Cover aspect ratio shared by every artwork tile (atsu uses ~2:3). */

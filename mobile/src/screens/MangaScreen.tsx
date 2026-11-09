@@ -9,7 +9,7 @@ import { Icon } from '../components/icons';
 import { Banner, Button, Chip, EmptyState, Segmented, TextField } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, coverAspect, radius, spacing, type, makeStyles } from '../theme';
+import { colors, coverAspect, radius, spacing, type, useThemeName, makeStyles } from '../theme';
 import type { Chapter, DownloadJob, OutputFormat } from '../types';
 
 type ChapterFilter = 'all' | 'saved' | 'missing' | 'queued';
@@ -30,6 +30,7 @@ const STATUS_TEXT: Record<DownloadJob['status'], string> = {
 };
 
 export function MangaScreen({ mangaId }: { mangaId: string }) {
+  useThemeName();
   const { mangaCache, library, jobs, config, loadingManga, actions } = useApp();
   const nav = useNav();
 
@@ -368,7 +369,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 <TextField
                   value={range}
                   onChangeText={setRange}
-                  placeholder="Range · all, 1-10, 1,3,5-7"
+                  placeholder="Range · 1-10"
                   icon="list-outline"
                   onSubmit={applyRange}
                   style={{ flex: 1 }}
@@ -597,7 +598,7 @@ const styles = makeStyles((colors) => ({
     paddingBottom: spacing.sm,
   },
   groupBlock: { marginTop: spacing.xl, gap: spacing.sm },
-  groupHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   groupTitle: { ...type.subtitle, color: colors.text, fontSize: 15 },
   groupHint: { ...type.tiny, color: colors.textFaint, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
   groupRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

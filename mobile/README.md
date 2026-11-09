@@ -1,4 +1,4 @@
-# Atsu Mobile
+# Atsu Offline
 
 A React Native (Expo) port of [Atsu Downloader](../README.md) — the same API client,
 scraper, download manager and CBZ/PDF converters, rebuilt for a phone instead of a
@@ -128,6 +128,40 @@ Accessibility follows the common React Native checklist
   secondary text and the accent rather than reusing the dark values,
 - chips and buttons keep ≥40-44pt targets, and font scaling is left enabled with
   `numberOfLines` guarding layouts.
+
+### Reader
+
+- **Chapter chaining (Infinite mode).** The arrows move a page, and at the first
+  or last page step into the neighbouring chapter; in the vertical strip reaching
+  the end loads the next chapter automatically. Turning Infinite mode off makes
+  the reader stay inside one chapter.
+- **Auto-scroll.** Hands-free glide down a strip, speed 1-10 in Settings. A touch
+  pauses it for 2.5 s instead of switching it off.
+- **Page scrubber.** atsu's slider, rebuilt: rounded track, violet fill, thin
+  white thumb, dot at the end. Dragging moves the list 1:1 with the thumb (no
+  animation lag) and the pill above it shows `12 / 233` while you drag.
+- **Settings sheet.** A bottom sheet in their "Graphics" style — uppercase label
+  + value, the same slider, iOS switches — for layout, infinite mode, auto-scroll
+  and keep-awake, with a reset.
+- Tapping the title pill in the chrome opens the series page.
+
+### Updates
+
+A sideloaded APK gets no store updates, so the app checks for itself: CI stamps
+each build with its run number as `versionCode` and publishes `version.json`
+next to the APK. On launch the app fetches that file, compares it with the
+embedded `versionCode`, and — only if the published build is newer — shows a
+"Build N is available" strip on Home (and a status row in Settings → Updates)
+with a download button. Android still asks for confirmation before installing;
+silent self-update is not possible outside Play.
+
+### Animations
+
+The selection rectangle **slides** instead of blinking: the segmented controls
+and the tab bar keep one highlighted rectangle and spring it to the new index.
+Progress bars ease to their new width, the splash plays the icon as an animation,
+and route changes cross-fade. All of it is opacity/transform (or a 300 ms width
+ease for the bars), and all of it is skipped under Reduce Motion.
 
 ### Download throughput
 

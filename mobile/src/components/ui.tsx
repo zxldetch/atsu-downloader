@@ -5,9 +5,10 @@
  * violet accent, sentence-case section headers, and generous 16pt gutters.
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -18,6 +19,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { useReducedMotion } from '../lib/motion';
 import { colors, radius, spacing, type, makeStyles } from '../theme';
 import { Icon, type IconName } from './icons';
 
@@ -154,11 +156,26 @@ export function ProgressBar({
   height?: number;
 }) {
   const ratio = total > 0 ? Math.min(1, Math.max(0, value / total)) : 0;
+  const reducedMotion = useReducedMotion();
+  const animated = useRef(new Animated.Value(ratio)).current;
+
+  useEffect(() => {
+    if (reducedMotion) {
+      animated.setValue(ratio);
+      return;
+    }
+    Animated.timing(animated, {
+      toValue: ratio,
+      duration: 320,
+      useNativeDriver: false,
+    }).start();
+  }, [animated, ratio, reducedMotion]);
+
   return (
     <View style={[styles.progressTrack, { height, borderRadius: height }]}>
-      <View
+      <Animated.View
         style={{
-          width: `${ratio * 100}%`,
+          width: animated.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
           height,
           backgroundColor: color,
           borderRadius: height,
@@ -366,8 +383,67 @@ export function Segmented<T extends string>({
   onChange: (key: T) => void;
   style?: StyleProp<ViewStyle>;
 }) {
+  const index = Math.max(0, options.findIndex((option) => option.key === value));
+  const [width, setWidth] = useState(0);
+  const reducedMotion = useReducedMotion();
+  const slide = useRef(new Animated.Value(0)).current;
+  const previous = useRef(index);
+
+  // The selection is one rectangle that slides, rather than a background that
+  // blinks on and off per option.
+  useEffect(() => {
+    if (previous.current === index) return;
+    previous.current = index;
+    if (reducedMotion) {
+      slide.setValue(index);
+      return;
+    }
+    Animated.spring(slide, {
+      toValue: index,
+      useNativeDriver: true,
+      stiffness: 320,
+      damping: 32,
+      mass: 0.7,
+    }).start();
+  }, [index, reducedMotion, slide]);
+
+  useEffect(() => {
+    slide.setValue(index);
+    // Only on mount / layout: re-running on every index change would cancel the
+    // spring above by snapping first.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const padding = 4;
+  const gap = 2;
+  const slot = width > 0 ? (width - padding * 2 - gap * (options.length - 1)) / options.length : 0;
+
   return (
-    <View style={[styles.segmented, style]} accessibilityRole="tablist">
+    <View
+      style={[styles.segmented, style]}
+      accessibilityRole="tablist"
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
+      {slot > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.segmentPill,
+            {
+              width: slot,
+              transform: [
+                {
+                  translateX: slide.interpolate({
+                    inputRange: options.map((_, i) => i),
+                    outputRange: options.map((_, i) => padding + i * (slot + gap)),
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
+
       {options.map((option) => {
         const active = option.key === value;
         return (
@@ -376,7 +452,7 @@ export function Segmented<T extends string>({
             onPress={() => onChange(option.key)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            style={[styles.segment, active && styles.segmentActive]}
+            style={styles.segment}
           >
             {option.icon ? (
               <Icon
@@ -644,7 +720,14 @@ const styles = makeStyles((colors) => ({
     paddingVertical: 9,
     borderRadius: radius.sm,
   },
-  segmentActive: { backgroundColor: colors.card },
+  segmentPill: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 0,
+    borderRadius: radius.sm,
+    backgroundColor: colors.card,
+  },
   segmentText: { ...type.small, color: colors.textDim, fontWeight: '600' },
   segmentTextActive: { color: colors.text },
   settingRow: {

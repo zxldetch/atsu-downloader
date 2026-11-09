@@ -304,9 +304,16 @@ export class DownloadQueue {
   /** Kick off as many queued jobs as the concurrency setting allows. */
   private pump(): void {
     const limit = Math.max(1, this.config().concurrentChapters);
-    for (const runtime of this.runtimes.values()) {
+    // Same enqueue batch → chapter order, so a 200-chapter job downloads 1 → 200.
+    const queued = [...this.runtimes.values()]
+      .filter((runtime) => runtime.job.status === 'queued' && !runtime.running)
+      .sort(
+        (a, b) =>
+          a.job.createdAt - b.job.createdAt || a.job.chapterNumber - b.job.chapterNumber,
+      );
+
+    for (const runtime of queued) {
       if (this.active.size >= limit) return;
-      if (runtime.job.status !== 'queued' || runtime.running) continue;
       runtime.running = true;
       this.active.add(runtime.job.id);
       void this.run(runtime).finally(() => {

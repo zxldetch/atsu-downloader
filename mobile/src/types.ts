@@ -124,6 +124,15 @@ export interface Config {
   demoMode: boolean;
   /** Reader layout: continuous vertical strip or page-by-page. */
   readerMode: 'vertical' | 'paged';
+  /**
+   * "Infinite mode": next/previous walk into the neighbouring chapter at the
+   * edges, and scrolling to the end of a strip loads the next one.
+   */
+  autoAdvanceChapters: boolean;
+  /** Slowly scroll the vertical reader without touching the screen. */
+  autoScroll: boolean;
+  /** Auto-scroll speed, 1 (slowest) to 10 (fastest). */
+  autoScrollSpeed: number;
   /** Keep the screen on while reading. */
   keepScreenAwake: boolean;
   /** normal = atsu Midnight, dark = OLED black, light = daylight. */
@@ -144,6 +153,9 @@ export const DEFAULT_CONFIG: Config = {
   retryDelay: 1,
   demoMode: process.env.EXPO_PUBLIC_DEMO === '1',
   readerMode: 'vertical',
+  autoAdvanceChapters: true,
+  autoScroll: false,
+  autoScrollSpeed: 4,
   keepScreenAwake: true,
   theme: 'normal',
   groupChoice: {},

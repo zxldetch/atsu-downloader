@@ -4,19 +4,22 @@ import { FlatList, Pressable, Text, View, useWindowDimensions } from 'react-nati
 import { formatChapterNumber, formatRelativeTime } from '../api/parse';
 import { ContinueRow, JobRow, SeriesCard } from '../components/cards';
 import { Icon } from '../components/icons';
+import { UpdateNotice, useUpdateCheck } from '../components/UpdateNotice';
 import { Banner, EmptyState, SectionHeader } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type, makeStyles } from '../theme';
+import { colors, radius, spacing, type, useThemeName, makeStyles } from '../theme';
 import type { LibraryEntry } from '../types';
 
 const GUTTER = spacing.lg;
 const GAP = spacing.md;
 
 export function HomeScreen() {
+  useThemeName();
   const { library, jobs, config, lastError, loadingManga, actions } = useApp();
   const nav = useNav();
   const { width } = useWindowDimensions();
+  const updates = useUpdateCheck();
 
   const cardWidth = Math.max(120, (width - GUTTER * 2 - GAP) / 2);
 
@@ -130,6 +133,14 @@ export function HomeScreen() {
                 <Text style={[styles.searchPillText, { color: colors.accent }]}>Loading…</Text>
               ) : null}
             </Pressable>
+
+            {updates.state?.update ? (
+              <UpdateNotice
+                state={updates.state}
+                checking={updates.checking}
+                onCheck={() => void updates.check()}
+              />
+            ) : null}
 
             {lastError ? <Banner onDismiss={actions.clearError}>{lastError}</Banner> : null}
 

@@ -7,11 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pageImageUrl } from '../api/client';
 import { chapterLabel } from '../api/parse';
 import { Icon } from '../components/icons';
-import { Button, ProgressBar } from '../components/ui';
+import { ReaderSheet } from '../components/ReaderSheet';
+import { Slider } from '../components/Slider';
+import { Button } from '../components/ui';
 import * as storage from '../lib/storage';
 import { useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type, makeStyles } from '../theme';
+import { colors, makeStyles, radius, spacing, type } from '../theme';
 
 interface ReaderPage {
   key: string;
@@ -46,6 +48,12 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   const [chrome, setChrome] = useState(true);
   const [index, setIndex] = useState(0);
   const [attempt, setAttempt] = useState(0);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [autoScrollOn, setAutoScrollOn] = useState(config.autoScroll);
+  const [scrubbing, setScrubbing] = useState(false);
+  const offsetRef = useRef(0);
+  const pausedUntil = useRef(0);
+  const advancedRef = useRef(false);
   const listRef = useRef<FlatList<ReaderPage>>(null);
   const startedAt = useRef(
     entry?.reading?.chapterId === chapterId ? Math.max(0, (entry?.reading?.page ?? 1) - 1) : 0,
@@ -126,6 +134,19 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     for (const uri of upcoming) void Image.prefetch(uri).catch(() => {});
   }, [index, pages, source]);
 
+  // Auto-scroll: a small offset per tick, native-driven by the list itself so it
+  // stays smooth. A touch pauses it for a moment instead of switching it off.
+  useEffect(() => {
+    if (!autoScrollOn || mode !== 'vertical' || pages.length === 0) return;
+    const step = 1 + config.autoScrollSpeed;
+    const timer = setInterval(() => {
+      if (Date.now() < pausedUntil.current) return;
+      offsetRef.current += step;
+      listRef.current?.scrollToOffset({ offset: offsetRef.current, animated: false });
+    }, 48);
+    return () => clearInterval(timer);
+  }, [autoScrollOn, config.autoScrollSpeed, mode, pages.length]);
+
   /** Page heights, then the running offsets — exact `getItemLayout` for a mixed-height strip. */
   const layout = useMemo(() => {
     const heights = pages.map((page) => Math.round(width / Math.max(0.35, page.aspect)));
@@ -139,12 +160,12 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   }, [pages, width]);
 
   const goTo = useCallback(
-    (next: number) => {
+    (next: number, animated = true) => {
       const clamped = Math.min(pages.length - 1, Math.max(0, next));
       setIndex(clamped);
       listRef.current?.scrollToOffset({
         offset: mode === 'paged' ? clamped * width : (layout.offsets[clamped] ?? 0),
-        animated: true,
+        animated,
       });
     },
     [layout.offsets, mode, pages.length, width],
@@ -153,6 +174,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset =
       mode === 'paged' ? event.nativeEvent.contentOffset.x : event.nativeEvent.contentOffset.y;
+    if (mode === 'vertical') offsetRef.current = offset;
     if (mode === 'paged') {
       setIndex(Math.min(pages.length - 1, Math.max(0, Math.round(offset / Math.max(1, width)))));
       return;
@@ -165,13 +187,46 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     setIndex(candidate);
   };
 
-  const nextChapter = useMemo(() => {
-    if (!manga) return null;
-    const at = manga.chapters.findIndex((item) => item.id === chapterId);
-    if (at < 0) return null;
-    // atsu lists newest first in most series; "next" means the following entry.
-    return manga.chapters[at + 1] ?? null;
-  }, [chapterId, manga]);
+  /** Reading order, not API order: atsu lists newest first, which would send
+   *  "next chapter" backwards. */
+  const orderedChapters = useMemo(
+    () => [...(manga?.chapters ?? [])].sort((a, b) => a.number - b.number || a.index - b.index),
+    [manga?.chapters],
+  );
+
+  const currentAt = useMemo(
+    () => orderedChapters.findIndex((item) => item.id === chapterId),
+    [chapterId, orderedChapters],
+  );
+
+  const nextChapter = currentAt >= 0 ? (orderedChapters[currentAt + 1] ?? null) : null;
+  const prevChapter = currentAt > 0 ? (orderedChapters[currentAt - 1] ?? null) : null;
+
+  /** Infinite mode gates every cross-chapter jump. */
+  const infinite = config.autoAdvanceChapters;
+
+  const openChapter = useCallback(
+    (id: string) => {
+      startedAt.current = 0;
+      setIndex(0);
+      advancedRef.current = false;
+      nav.replace({ name: 'reader', mangaId, chapterId: id });
+    },
+    [mangaId, nav],
+  );
+
+  const canGoPrev = index > 0 || (infinite && !!prevChapter);
+  const canGoNext = index < pages.length - 1 || (infinite && !!nextChapter);
+
+  const stepPrev = useCallback(() => {
+    if (index > 0) goTo(index - 1);
+    else if (infinite && prevChapter) openChapter(prevChapter.id);
+  }, [goTo, index, infinite, openChapter, prevChapter]);
+
+  const stepNext = useCallback(() => {
+    if (index < pages.length - 1) goTo(index + 1);
+    else if (infinite && nextChapter) openChapter(nextChapter.id);
+  }, [goTo, index, infinite, nextChapter, openChapter, pages.length]);
 
   const headerTitle = useMemo(() => (chapter ? chapterLabel(chapter) : 'Reading'), [chapter]);
 
@@ -222,6 +277,17 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
         maxToRenderPerBatch={2}
         windowSize={3}
         removeClippedSubviews
+        onScrollBeginDrag={() => {
+          // A touch pauses auto-scroll for 2.5s rather than switching it off.
+          pausedUntil.current = Date.now() + 2500;
+        }}
+        onEndReachedThreshold={0.15}
+        onEndReached={() => {
+          if (!infinite || !nextChapter || advancedRef.current) return;
+          if (mode !== 'vertical' || pages.length === 0) return;
+          advancedRef.current = true;
+          openChapter(nextChapter.id);
+        }}
         onScrollToIndexFailed={() => listRef.current?.scrollToOffset({ offset: 0, animated: false })}
         contentContainerStyle={
           mode === 'vertical' ? { paddingBottom: insets.bottom + 72 } : undefined
@@ -282,65 +348,130 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
             >
               <Icon name="arrow-back" size={20} color={colors.text} />
             </Pressable>
-            {/* atsu floats a rounded title pill between the chrome buttons. */}
-            <View style={styles.titlePill}>
+            {/* atsu floats a rounded title pill between the chrome buttons, and
+                tapping it goes up to the series page. */}
+            <Pressable
+              onPress={() => nav.push({ name: 'manga', mangaId })}
+              accessibilityRole="button"
+              accessibilityLabel={`${manga?.title ?? headerTitle}, open series page`}
+              style={styles.titlePill}
+            >
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {manga?.title ?? headerTitle}
               </Text>
               <Text style={styles.headerMeta} numberOfLines={1}>
                 {headerTitle} · {source === 'offline' ? 'offline' : 'streaming'}
               </Text>
-            </View>
+            </Pressable>
             <Pressable
-              onPress={() => {
-                setMode(mode === 'paged' ? 'vertical' : 'paged');
-                setIndex(index);
-              }}
+              onPress={() => setSheetOpen(true)}
               hitSlop={12}
-              accessibilityLabel={mode === 'paged' ? 'Switch to vertical scroll' : 'Switch to paged'}
+              accessibilityLabel="Reader settings"
+              accessibilityRole="button"
               style={styles.headerButton}
             >
-              <Icon
-                name={mode === 'paged' ? 'reorder-four-outline' : 'copy-outline'}
-                size={19}
-                color={colors.text}
-              />
+              <Icon name="options-outline" size={19} color={colors.text} />
             </Pressable>
           </View>
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-            <ProgressBar
-              value={index + 1}
-              total={Math.max(1, pages.length)}
-              height={6}
-              color={colors.accentText}
+            <Slider
+              value={pages.length > 1 ? index / (pages.length - 1) : 0}
+              steps={Math.max(1, pages.length)}
+              onChange={(ratio) =>
+                // While dragging the list must follow the thumb exactly, so jump
+                // without animation; the thumb is already the animation.
+                goTo(Math.round(ratio * Math.max(0, pages.length - 1)), false)
+              }
+              onSlideStart={() => setScrubbing(true)}
+              onSlideEnd={() => setScrubbing(false)}
+              valueLabel={`${index + 1} / ${pages.length}`}
+              label={undefined}
             />
             <View style={styles.footerRow}>
               <Pressable
-                onPress={() => goTo(index - 1)}
+                onPress={() => setAutoScrollOn((value) => !value)}
                 hitSlop={10}
-                disabled={index === 0}
-                accessibilityLabel="Previous page"
-                style={[styles.headerButton, index === 0 && { opacity: 0.35 }]}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: autoScrollOn }}
+                accessibilityLabel="Auto-scroll"
+                style={[styles.headerButton, autoScrollOn && styles.headerButtonOn]}
               >
-                <Icon name="chevron-back" size={20} color={colors.text} />
+                <Icon
+                  name={autoScrollOn ? 'pause' : 'play'}
+                  size={17}
+                  color={colors.text}
+                />
+              </Pressable>
+              <Pressable
+                onPress={stepPrev}
+                hitSlop={10}
+                disabled={!canGoPrev}
+                accessibilityLabel={index === 0 && prevChapter ? 'Previous chapter' : 'Previous page'}
+                style={[styles.headerButton, !canGoPrev && { opacity: 0.35 }]}
+              >
+                <Icon name="arrow-back" size={19} color={colors.text} />
               </Pressable>
               <View style={styles.pagePill}>
                 <Text style={styles.pageLabel}>
+                  {chapter ? `Ch. ${chapter.number} · ` : ''}
                   {index + 1} / {pages.length}
                 </Text>
               </View>
               <Pressable
-                onPress={() => goTo(index + 1)}
+                onPress={stepNext}
                 hitSlop={10}
-                disabled={index >= pages.length - 1}
-                accessibilityLabel="Next page"
-                style={[styles.headerButton, index >= pages.length - 1 && { opacity: 0.35 }]}
+                disabled={!canGoNext}
+                accessibilityLabel={
+                  index >= pages.length - 1 && nextChapter ? 'Next chapter' : 'Next page'
+                }
+                style={[styles.headerButton, !canGoNext && { opacity: 0.35 }]}
               >
-                <Icon name="chevron-forward" size={20} color={colors.text} />
+                <Icon name="arrow-forward" size={19} color={colors.text} />
+              </Pressable>
+              <Pressable
+                onPress={() => setSheetOpen(true)}
+                hitSlop={10}
+                accessibilityLabel="Reader settings"
+                style={styles.headerButton}
+              >
+                <Icon name="options-outline" size={17} color={colors.text} />
               </Pressable>
             </View>
           </View>
+
+          <ReaderSheet
+            open={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+            mode={mode}
+            onMode={(next) => {
+              setMode(next);
+              setIndex(index);
+              actions.updateConfig({ readerMode: next });
+            }}
+            autoAdvance={config.autoAdvanceChapters}
+            onAutoAdvance={(value) => actions.updateConfig({ autoAdvanceChapters: value })}
+            autoScroll={autoScrollOn}
+            onAutoScroll={(value) => {
+              setAutoScrollOn(value);
+              actions.updateConfig({ autoScroll: value });
+            }}
+            speed={config.autoScrollSpeed}
+            onSpeed={(value) => actions.updateConfig({ autoScrollSpeed: value })}
+            keepAwake={config.keepScreenAwake}
+            onKeepAwake={(value) => actions.updateConfig({ keepScreenAwake: value })}
+            onReset={() => {
+              setAutoScrollOn(false);
+              actions.updateConfig({
+                autoAdvanceChapters: true,
+                autoScroll: false,
+                autoScrollSpeed: 4,
+                keepScreenAwake: true,
+                readerMode: 'vertical',
+              });
+              setMode('vertical');
+            }}
+          />
         </>
       ) : null}
     </View>
@@ -378,6 +509,7 @@ const styles = makeStyles((colors) => ({
     justifyContent: 'center',
     backgroundColor: 'rgba(25,26,30,0.94)',
   },
+  headerButtonOn: { backgroundColor: colors.accent },
   titlePill: {
     flex: 1,
     alignItems: 'center',
@@ -408,12 +540,14 @@ const styles = makeStyles((colors) => ({
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
   pagePill: {
-    paddingHorizontal: spacing.lg,
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
     paddingVertical: 9,
     borderRadius: 10,
     backgroundColor: 'rgba(25,26,30,0.94)',

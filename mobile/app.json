@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Atsu Mobile",
-    "slug": "atsu-mobile",
+    "name": "Atsu Offline",
+    "slug": "atsu-offline",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -39,7 +39,20 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-media-library"
+      "expo-media-library",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#000000",
+            "image": "./assets/splash-icon.png"
+          }
+        }
+      ]
     ]
   }
 }

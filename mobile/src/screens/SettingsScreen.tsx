@@ -14,13 +14,15 @@ import {
   Stepper,
   Toggle,
 } from '../components/ui';
+import { UpdateNotice, useUpdateCheck } from '../components/UpdateNotice';
 import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
+import { Slider } from '../components/Slider';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import {
   colors,
-  makeStyles,
+  useThemeName, makeStyles,
   palettes,
   radius,
   spacing,
@@ -55,6 +57,7 @@ const GUIDE_URL = `${REPO_URL}/blob/main/mobile/INSTALL.md`;
 const SITE_URL = 'https://atsu.moe';
 
 export function SettingsScreen() {
+  useThemeName();
   const { config, jobs, library, actions } = useApp();
   const nav = useNav();
   const [busy, setBusy] = useState<'downloads' | 'all' | null>(null);
@@ -107,6 +110,8 @@ export function SettingsScreen() {
     setBusy(null);
   };
 
+  const updates = useUpdateCheck();
+
   const openLink = (url: string) => {
     void Linking.openURL(url).catch(() => {});
   };
@@ -119,7 +124,7 @@ export function SettingsScreen() {
             <Text style={styles.identityMarkText}>A</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.identityTitle}>Atsu Mobile</Text>
+            <Text style={styles.identityTitle}>Atsu Offline</Text>
             <Text style={styles.identityMeta}>
               v{Constants.expoConfig?.version ?? '1.0.0'} ·{' '}
               {config.demoMode ? 'demo fixtures' : 'direct from atsu.moe'}
@@ -190,6 +195,30 @@ export function SettingsScreen() {
             hint="Stops the phone sleeping mid-chapter."
             value={config.keepScreenAwake}
             onChange={(keepScreenAwake) => actions.updateConfig({ keepScreenAwake })}
+          />
+        </View>
+
+        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Toggle
+            label="Infinite mode"
+            hint="Next/previous move into the neighbouring chapter, and the end of a strip loads the next one."
+            value={config.autoAdvanceChapters}
+            onChange={(autoAdvanceChapters) => actions.updateConfig({ autoAdvanceChapters })}
+          />
+          <Toggle
+            label="Auto-scroll"
+            hint="Glide down the page without touching it. Touching pauses it for a moment."
+            value={config.autoScroll}
+            onChange={(autoScroll) => actions.updateConfig({ autoScroll })}
+          />
+          <Slider
+            value={(config.autoScrollSpeed - 1) / 9}
+            steps={10}
+            onChange={(value) => actions.updateConfig({ autoScrollSpeed: 1 + Math.round(value * 9) })}
+            label="SCROLL SPEED"
+            valueLabel={`${config.autoScrollSpeed}`}
+            disabled={!config.autoScroll}
+            style={{ marginTop: spacing.md }}
           />
         </View>
 
@@ -324,6 +353,20 @@ export function SettingsScreen() {
           />
           <Text style={[styles.rowHint, { marginTop: spacing.md }]}>
             Deleting chapters frees space but keeps your shelf and where you stopped reading.
+          </Text>
+        </View>
+
+        <SectionHeader title="Updates" />
+        <View style={styles.card}>
+          <UpdateNotice
+            state={updates.state}
+            checking={updates.checking}
+            onCheck={() => void updates.check()}
+            compact
+          />
+          <Text style={styles.rowHint}>
+            Builds are published to GitHub. The app checks once per launch and offers the APK;
+            Android asks you to confirm the install, since sideloaded apps cannot self-update.
           </Text>
         </View>
 

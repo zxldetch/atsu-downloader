@@ -19,7 +19,7 @@ import {
   formatSpeed,
 } from '../api/parse';
 import type { Chapter, DownloadJob, LibraryEntry } from '../types';
-import { colors, coverAspect, radius, spacing, type, makeStyles } from '../theme';
+import { colors, coverAspect, makeStyles, radius, spacing, type, useThemeName } from '../theme';
 import { Icon, type IconName } from './icons';
 import { ProgressBar } from './ui';
 
@@ -82,6 +82,7 @@ export const ContinueRow = memo(function ContinueRow({
   progress?: { value: number; total: number };
   onPress: (mangaId: string) => void;
 }) {
+  useThemeName();
   return (
     <Pressable
       onPress={() => onPress(mangaId)}
@@ -125,6 +126,7 @@ export const SeriesCard = memo(function SeriesCard({
   onPress: (mangaId: string) => void;
   onLongPress?: (mangaId: string) => void;
 }) {
+  useThemeName();
   const downloaded = Object.keys(entry.chapters).length;
   const reading = entry.reading;
   const lastActivity = reading?.updatedAt ?? entry.addedAt;
@@ -176,6 +178,7 @@ export const LibraryRow = memo(function LibraryRow({
   entry: LibraryEntry;
   onPress: (mangaId: string) => void;
 }) {
+  useThemeName();
   const downloaded = Object.keys(entry.chapters).length;
   const bytes = Object.values(entry.chapters).reduce((sum, chapter) => sum + chapter.bytes, 0);
   const reading = entry.reading;
@@ -230,6 +233,7 @@ export const ChapterRow = memo(function ChapterRow({
   onToggle: (chapterId: string) => void;
   onRead: (chapterId: string) => void;
 }) {
+  useThemeName();
   return (
     <Pressable
       onPress={() => onToggle(chapter.id)}
@@ -323,6 +327,7 @@ export const JobRow = memo(function JobRow({
   onRemove: (id: string) => void;
   onExport?: (id: string) => void;
 }) {
+  useThemeName();
   const color = statusColor(job.status);
   const active = job.status === 'downloading' || job.status === 'queued';
   const percent = job.pagesTotal

@@ -1,3 +1,4 @@
+import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
@@ -14,7 +15,18 @@ import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { ShelfScreen } from './src/screens/ShelfScreen';
 import { AppProvider, useApp } from './src/store/AppStore';
-import { colors, getPalette, setThemeName, type ThemeName } from './src/theme';
+import {
+  colors,
+  getPalette,
+  setThemeName,
+  ThemeContext,
+  type ThemeName,
+} from './src/theme';
+
+// Keep the native splash (black, new mark) on screen until our own animation is
+// painted — otherwise Android shows its window background first, which is the
+// white flash this replaced.
+void SplashScreen.preventAutoHideAsync?.().catch(() => {});
 
 /** Accepts anything the persisted config might hold and falls back safely. */
 function safeTheme(value: unknown): ThemeName {
@@ -25,7 +37,7 @@ function safeTheme(value: unknown): ThemeName {
  * Cross-fades the current screen in when the route changes. Transform/opacity
  * only, so it stays on the native driver; skipped entirely with Reduce Motion.
  */
-function Router({ themeKey }: { themeKey: ThemeName }) {
+function Router() {
   const { route } = useNav();
   const { hydrated } = useApp();
   const reducedMotion = useReducedMotion();
@@ -83,10 +95,7 @@ function Router({ themeKey }: { themeKey: ThemeName }) {
   })();
 
   return (
-    // Keyed by theme so every screen below rebuilds its StyleSheets against the
-    // new palette — the navigator itself stays mounted, so the route is kept.
     <Animated.View
-      key={themeKey}
       style={{
         flex: 1,
         opacity: progress,
@@ -101,42 +110,50 @@ function Router({ themeKey }: { themeKey: ThemeName }) {
 }
 
 /**
- * Owns the theme. The palette is handed to `theme.ts` before children render, and
- * the navigator is keyed by theme so every lazily built StyleSheet is rebuilt —
- * the router keeps its route through the remount, so switching theme in Settings
- * leaves you on Settings.
+ * Owns the theme. The palette is handed to `theme.ts` before children render,
+ * then published through a context: consumers re-render in place, so switching
+ * theme never remounts a list (no scroll loss, no cover flash) and never flicks
+ * through a blank frame.
  */
 function Shell() {
   const { config, hydrated } = useApp();
   const theme = safeTheme(config.theme);
   const palette = getPalette(theme);
 
-  // A module-level assignment (not state): it must be in place before the first
-  // child of the keyed subtree renders.
+  // A module-level assignment (not state): it must be in place before the
+  // context value reaches consumers in this same render pass.
   setThemeName(theme);
 
   const [splashDone, setSplashDone] = useState(false);
+  const nativeSplashHidden = useRef(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const pending = SystemUI.setBackgroundColorAsync?.(palette.bg);
-    // Optional chaining may return undefined on platforms without the module.
     if (pending && typeof pending.catch === 'function') pending.catch(() => {});
   }, [palette.bg]);
 
+  /** Hand over from the native splash once our own frame is on screen. */
+  const releaseNativeSplash = () => {
+    if (nativeSplashHidden.current) return;
+    nativeSplashHidden.current = true;
+    void SplashScreen.hideAsync?.().catch(() => {});
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: palette.bg }}>
-      <StatusBar style={palette.scheme === 'light' ? 'dark' : 'light'} />
-      <NavProvider>
-        <Router themeKey={theme} />
-      </NavProvider>
-      {/* Mounted above the keyed tree so a theme switch never replays it.
-          Skipped under jest, where the animation clock never advances and the
-          overlay would sit on top of every query. */}
-      {splashDone || process.env.NODE_ENV === 'test' ? null : (
-        <BootSplash ready={hydrated} onDone={() => setSplashDone(true)} />
-      )}
-    </View>
+    <ThemeContext.Provider value={theme}>
+      <View style={{ flex: 1, backgroundColor: palette.bg }} onLayout={releaseNativeSplash}>
+        <StatusBar style={palette.scheme === 'light' ? 'dark' : 'light'} />
+        <NavProvider>
+          <Router />
+        </NavProvider>
+        {/* Mounted above the tree so a theme switch never replays it. Skipped
+            under jest, where the animation clock never advances. */}
+        {splashDone || process.env.NODE_ENV === 'test' ? null : (
+          <BootSplash ready={hydrated} onDone={() => setSplashDone(true)} />
+        )}
+      </View>
+    </ThemeContext.Provider>
   );
 }
 

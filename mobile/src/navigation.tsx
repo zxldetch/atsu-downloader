@@ -7,12 +7,21 @@
  * behaving identically.
  */
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Animated, BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from './components/icons';
-import { colors, radius, spacing, type, makeStyles } from './theme';
+import { useReducedMotion } from './lib/motion';
+import { colors, radius, spacing, type, useThemeName, makeStyles } from './theme';
 
 export type TabName = 'home' | 'search' | 'shelf' | 'settings';
 
@@ -118,11 +127,58 @@ export function useNav(): NavContextValue {
 }
 
 export function TabBar() {
+  useThemeName();
   const { activeTab, go } = useNav();
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const index = Math.max(0, TABS.findIndex((tab) => tab.key === activeTab));
+  const slide = useRef(new Animated.Value(index)).current;
+
+  // One highlight rectangle glides between tabs instead of blinking per icon.
+  useEffect(() => {
+    if (reducedMotion) {
+      slide.setValue(index);
+      return;
+    }
+    Animated.spring(slide, {
+      toValue: index,
+      useNativeDriver: true,
+      stiffness: 340,
+      damping: 34,
+      mass: 0.7,
+    }).start();
+  }, [index, reducedMotion, slide]);
+
+  const slot = width > 0 ? width / TABS.length : 0;
 
   return (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+    <View
+      style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
+      {slot > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.tabPillOn,
+            {
+              position: 'absolute',
+              top: spacing.sm,
+              left: 0,
+              marginLeft: (slot - 56) / 2,
+              transform: [
+                {
+                  translateX: slide.interpolate({
+                    inputRange: TABS.map((_, i) => i),
+                    outputRange: TABS.map((_, i) => i * slot),
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
       {/* atsu's bar is icon-only: filled and white when active, outline and grey otherwise. */}
       {TABS.map((tab) => {
         const active = tab.key === activeTab;
@@ -135,7 +191,7 @@ export function TabBar() {
             accessibilityState={{ selected: active }}
             style={({ pressed }) => [styles.tab, pressed && { opacity: 0.6 }]}
           >
-            <View style={[styles.tabPill, active && styles.tabPillOn]}>
+            <View style={styles.tabPill}>
               <Icon
                 name={active ? tab.iconActive : tab.icon}
                 size={23}

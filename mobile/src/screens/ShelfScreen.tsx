@@ -8,7 +8,7 @@ import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, spacing, type, makeStyles } from '../theme';
+import { colors, spacing, type, useThemeName, makeStyles } from '../theme';
 import type { DownloadJob, LibraryEntry } from '../types';
 
 type Segment = 'library' | 'downloads';
@@ -18,6 +18,7 @@ const GUTTER = spacing.lg;
 const GAP = spacing.md;
 
 export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
+  useThemeName();
   const { library, jobs, actions } = useApp();
   const nav = useNav();
   const { width } = useWindowDimensions();

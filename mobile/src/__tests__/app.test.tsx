@@ -59,7 +59,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('Atsu Mobile app', () => {
+describe('Atsu Offline app', () => {
   it('boots into a shelf-first home screen', async () => {
     await renderApp();
 
@@ -72,7 +72,7 @@ describe('Atsu Mobile app', () => {
     await renderApp();
     await openDemoSeries();
 
-    expect(screen.getByPlaceholderText('Range · all, 1-10, 1,3,5-7')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Range · 1-10')).toBeTruthy();
     expect(screen.getByText('Chapter 1 · The first delivery')).toBeTruthy();
     expect(screen.getByText('Select chapters')).toBeTruthy();
   });
@@ -82,7 +82,7 @@ describe('Atsu Mobile app', () => {
     await openDemoSeries();
 
     await act(async () => {
-      fireEvent.changeText(screen.getByPlaceholderText('Range · all, 1-10, 1,3,5-7'), '1-3');
+      fireEvent.changeText(screen.getByPlaceholderText('Range · 1-10'), '1-3');
     });
     await act(async () => {
       fireEvent.press(screen.getByText('Apply'));
@@ -275,7 +275,7 @@ describe('Atsu Mobile app', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Settings'));
     });
-    await screen.findByText('Atsu Mobile');
+    await screen.findByText('Atsu Offline');
 
     expect(screen.getByText('Reader')).toBeTruthy();
     expect(screen.getByText('Keep the screen awake')).toBeTruthy();

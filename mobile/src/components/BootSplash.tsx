@@ -120,7 +120,7 @@ export function BootSplash({ ready, onDone }: { ready: boolean; onDone?: () => v
   return (
     <Animated.View
       style={[styles.root, { opacity: fade }]}
-      accessibilityLabel="Atsu Mobile is starting"
+      accessibilityLabel="Atsu Offline is starting"
       accessibilityLiveRegion="polite"
       testID="boot-splash"
     >

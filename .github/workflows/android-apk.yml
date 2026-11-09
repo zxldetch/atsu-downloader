@@ -152,10 +152,35 @@ jobs:
           cp android/app/build/outputs/apk/release/*.apk artifacts/atsu-mobile.apk
           ls -lh artifacts/
 
+      - name: Write version.json
+        # The app reads this on launch to answer "is there a newer build?".
+        # Same build number that was stamped into versionCode, so the comparison
+        # in lib/updates.ts is exact.
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          config = json.loads(pathlib.Path("app.json").read_text())["expo"]
+          code = config["android"]["versionCode"]
+          payload = {
+              "version": config["version"],
+              "versionCode": int(code),
+              "apkUrl": "https://github.com/zxldetch/atsu-downloader/releases/download/mobile-latest/atsu-mobile.apk",
+              "installUrl": "https://github.com/zxldetch/atsu-downloader/blob/main/mobile/INSTALL.md",
+              "notes": f"CI build {code}",
+              "publishedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+          }
+          pathlib.Path("artifacts/version.json").write_text(json.dumps(payload, indent=2) + "\n")
+          print(json.dumps(payload, indent=2))
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: atsu-mobile-apk
-          path: mobile/artifacts/atsu-mobile.apk
+          path: |
+            mobile/artifacts/atsu-mobile.apk
+            mobile/artifacts/version.json
           if-no-files-found: error
           retention-days: 30
 
@@ -171,11 +196,11 @@ jobs:
           Not a store release: signed with the debug keystore, for personal use.
           Install steps: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/mobile/INSTALL.md"
           if gh release view mobile-latest >/dev/null 2>&1; then
-            gh release upload mobile-latest artifacts/atsu-mobile.apk --clobber
+            gh release upload mobile-latest artifacts/atsu-mobile.apk artifacts/version.json --clobber
             gh release edit mobile-latest --notes "$NOTES"
           else
-            gh release create mobile-latest artifacts/atsu-mobile.apk \
-              --title "Atsu Mobile — latest APK" \
+            gh release create mobile-latest artifacts/atsu-mobile.apk artifacts/version.json \
+              --title "Atsu Offline — latest APK" \
               --notes "$NOTES" \
               --prerelease
           fi

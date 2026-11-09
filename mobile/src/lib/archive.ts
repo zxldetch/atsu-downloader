@@ -150,8 +150,8 @@ export async function buildPdf(
   const pdf = await PDFDocument.create();
   if (options.title) pdf.setTitle(options.title);
   if (options.author) pdf.setAuthor(options.author);
-  pdf.setCreator('Atsu Mobile');
-  pdf.setProducer('Atsu Mobile');
+  pdf.setCreator('Atsu Offline');
+  pdf.setProducer('Atsu Offline');
 
   for (const page of pages) {
     const uri = await resolveUri(page.name);
