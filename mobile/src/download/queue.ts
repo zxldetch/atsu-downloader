@@ -53,6 +53,8 @@ interface Runtime {
   running: boolean;
   lastEmit: number;
   pages: Page[] | null;
+  /** The in-flight page-list request, shared by the prefetch and run(). */
+  pagesRequest: Promise<Page[]> | null;
 }
 
 export const jobId = (mangaId: string, chapterId: string, format: OutputFormat) =>
@@ -118,6 +120,7 @@ export class DownloadQueue {
         running: false,
         lastEmit: 0,
         pages: null,
+        pagesRequest: null,
       });
     }
     this.pump();
@@ -170,6 +173,7 @@ export class DownloadQueue {
       running: false,
       lastEmit: 0,
       pages: null,
+      pagesRequest: null,
     };
     // ComicInfo metadata is rebuilt from the library entry when needed.
     this.metaByManga.set(spec.mangaId, { ...(this.metaByManga.get(spec.mangaId) ?? {}), ...spec.meta });
@@ -281,13 +285,18 @@ export class DownloadQueue {
       if (runtime.job.status !== 'queued') continue;
       budget -= 1;
       const { mangaId, chapterId } = runtime.job;
-      void this.options
-        .loadPages(mangaId, chapterId, runtime.controller.signal)
+      runtime.pagesRequest ??= this.options.loadPages(
+        mangaId,
+        chapterId,
+        runtime.controller.signal,
+      );
+      void runtime.pagesRequest
         .then((pages) => {
           if (pages.length > 0) runtime.pages = pages;
         })
         .catch(() => {
-          // A failed prefetch is not an error: run() will fetch it again.
+          // A failed prefetch is not an error: run() retries the request.
+          runtime.pagesRequest = null;
         });
     }
   }
@@ -320,8 +329,10 @@ export class DownloadQueue {
     try {
       await storage.ensureDir(dir);
 
-      const pages =
-        runtime.pages ?? (await this.options.loadPages(job.mangaId, job.chapterId, signal));
+      // Reuse the prefetch's request when it is still in flight, so a chapter
+      // whose page list is already on its way never asks the API twice.
+      runtime.pagesRequest ??= this.options.loadPages(job.mangaId, job.chapterId, signal);
+      const pages = runtime.pages ?? (await runtime.pagesRequest);
       runtime.pages = pages;
 
       if (pages.length === 0) throw new Error('No pages found in chapter');
@@ -416,6 +427,8 @@ export class DownloadQueue {
         return;
       }
       const message = error instanceof Error ? error.message : String(error);
+      // A stale page-list promise must not leak into the retry.
+      if (!runtime.pages) runtime.pagesRequest = null;
       this.options.onLog?.(`${job.chapterTitle}: ${message}`);
       this.patch(job.id, { status: 'error', error: message });
       this.options.onLibraryUpdate(this.runtimes.get(job.id)?.job ?? job);
