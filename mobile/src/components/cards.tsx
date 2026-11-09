@@ -284,14 +284,26 @@ const STATUS_ICON: Record<DownloadJob['status'], IconName> = {
   canceled: 'close-circle-outline',
 };
 
-const STATUS_COLOR: Record<DownloadJob['status'], string> = {
-  queued: colors.textDim,
-  downloading: colors.accentText,
-  paused: colors.warning,
-  done: colors.success,
-  error: colors.error,
-  canceled: colors.textFaint,
-};
+/**
+ * Resolved per call, not at import: the palette is theme-dependent and a
+ * module-level map would freeze the default theme's colours.
+ */
+function statusColor(status: DownloadJob['status']): string {
+  switch (status) {
+    case 'downloading':
+      return colors.accentText;
+    case 'paused':
+      return colors.warning;
+    case 'done':
+      return colors.success;
+    case 'error':
+      return colors.error;
+    case 'canceled':
+      return colors.textFaint;
+    default:
+      return colors.textDim;
+  }
+}
 
 /** One row in the download queue. */
 export const JobRow = memo(function JobRow({
@@ -311,7 +323,7 @@ export const JobRow = memo(function JobRow({
   onRemove: (id: string) => void;
   onExport?: (id: string) => void;
 }) {
-  const color = STATUS_COLOR[job.status];
+  const color = statusColor(job.status);
   const active = job.status === 'downloading' || job.status === 'queued';
   const percent = job.pagesTotal
     ? Math.round((job.pagesDone / Math.max(1, job.pagesTotal)) * 100)
