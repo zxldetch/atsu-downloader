@@ -12,17 +12,23 @@ jest.mock('expo-constants', () => ({
 
 describe('update check', () => {
   const originalFetch = global.fetch;
+  const originalBuild = process.env.EXPO_PUBLIC_BUILD_NUMBER;
+
+  beforeEach(() => {
+    // CI exports a build number into the whole job; these tests pin the value.
+    delete process.env.EXPO_PUBLIC_BUILD_NUMBER;
+  });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    if (originalBuild === undefined) delete process.env.EXPO_PUBLIC_BUILD_NUMBER;
+    else process.env.EXPO_PUBLIC_BUILD_NUMBER = originalBuild;
   });
 
   it('prefers the build number inlined at bundle time', () => {
-    const previous = process.env.EXPO_PUBLIC_BUILD_NUMBER;
     process.env.EXPO_PUBLIC_BUILD_NUMBER = '57';
     expect(currentVersionCode()).toBe(57);
-    if (previous === undefined) delete process.env.EXPO_PUBLIC_BUILD_NUMBER;
-    else process.env.EXPO_PUBLIC_BUILD_NUMBER = previous;
+    delete process.env.EXPO_PUBLIC_BUILD_NUMBER;
   });
 
   it('falls back to the app config when nothing was inlined', () => {
