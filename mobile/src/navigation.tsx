@@ -1,44 +1,80 @@
 /**
- * A deliberately tiny router.
+ * A deliberately tiny router with an atsu-style bottom tab bar.
  *
- * Five screens with no deep links do not justify a navigation dependency, and
- * this keeps the web preview and Expo Go builds identical.
+ * Four tabs (Home, Search, Shelf, Settings) plus two pushed screens (a series
+ * and the reader). That is small enough that a navigation library would cost
+ * more than it returns, and this keeps Expo Go, the APK and the web preview
+ * behaving identically.
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconButton } from './components/ui';
-import { colors, spacing, type } from './theme';
+import { Icon, type IconName } from './components/icons';
+import { colors, radius, spacing, type } from './theme';
+
+export type TabName = 'home' | 'search' | 'shelf' | 'settings';
 
 export type Route =
   | { name: 'home' }
+  | { name: 'search' }
+  | { name: 'shelf'; tab?: 'library' | 'downloads' }
+  | { name: 'settings' }
   | { name: 'manga'; mangaId: string }
-  | { name: 'queue' }
-  | { name: 'reader'; mangaId: string; chapterId: string }
-  | { name: 'settings' };
+  | { name: 'reader'; mangaId: string; chapterId: string };
+
+const TABS: { key: TabName; label: string; icon: IconName; iconActive: IconName }[] = [
+  { key: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
+  { key: 'search', label: 'Search', icon: 'search-outline', iconActive: 'search' },
+  { key: 'shelf', label: 'Shelf', icon: 'bookmark-outline', iconActive: 'bookmark' },
+  { key: 'settings', label: 'Settings', icon: 'person-outline', iconActive: 'person' },
+];
+
+export function tabOf(route: Route): TabName {
+  switch (route.name) {
+    case 'search':
+      return 'search';
+    case 'shelf':
+      return 'shelf';
+    case 'settings':
+      return 'settings';
+    default:
+      return 'home';
+  }
+}
 
 interface NavContextValue {
   route: Route;
   stack: Route[];
   push: (route: Route) => void;
   replace: (route: Route) => void;
+  /** Switch tabs: resets the stack so the tab bar never grows history. */
+  go: (tab: TabName, options?: { shelfTab?: 'library' | 'downloads' }) => void;
   back: () => void;
   canGoBack: boolean;
+  isTabRoot: boolean;
+  activeTab: TabName;
 }
 
 const NavContext = createContext<NavContextValue | null>(null);
 
+const rootFor = (tab: TabName): Route => (tab === 'shelf' ? { name: 'shelf' } : { name: tab });
+
 export function NavProvider({ children }: { children: React.ReactNode }) {
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
+  const route = stack[stack.length - 1];
 
-  const push = useCallback((route: Route) => {
-    setStack((prev) => [...prev, route]);
+  const push = useCallback((next: Route) => {
+    setStack((prev) => [...prev, next]);
   }, []);
 
-  const replace = useCallback((route: Route) => {
-    setStack((prev) => [...prev.slice(0, -1), route]);
+  const replace = useCallback((next: Route) => {
+    setStack((prev) => [...prev.slice(0, -1), next]);
+  }, []);
+
+  const go = useCallback((tab: TabName, options?: { shelfTab?: 'library' | 'downloads' }) => {
+    setStack([tab === 'shelf' ? { name: 'shelf', tab: options?.shelfTab } : rootFor(tab)]);
   }, []);
 
   const back = useCallback(() => {
@@ -59,14 +95,17 @@ export function NavProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      route: stack[stack.length - 1],
+      route,
       stack,
       push,
       replace,
+      go,
       back,
       canGoBack: stack.length > 1,
+      isTabRoot: stack.length === 1,
+      activeTab: tabOf(route),
     }),
-    [stack, push, replace, back],
+    [route, stack, push, replace, go, back],
   );
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
@@ -78,92 +117,179 @@ export function useNav(): NavContextValue {
   return context;
 }
 
+export function TabBar() {
+  const { activeTab, go } = useNav();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+      {TABS.map((tab) => {
+        const active = tab.key === activeTab;
+        return (
+          <Pressable
+            key={tab.key}
+            onPress={() => go(tab.key)}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.label}
+            accessibilityState={{ selected: active }}
+            style={({ pressed }) => [styles.tab, pressed && { opacity: 0.6 }]}
+          >
+            <Icon
+              name={active ? tab.iconActive : tab.icon}
+              size={22}
+              color={active ? colors.accent : colors.textFaint}
+            />
+            <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * The shared page frame: dark background, an optional header, the content, an
+ * optional sticky footer, and the tab bar on tab roots.
+ */
 export function Screen({
   title,
   subtitle,
+  brand,
   onBack,
   right,
   children,
   footer,
+  showTabs = true,
+  contentStyle,
 }: {
-  title: string;
+  title?: string;
   subtitle?: string;
+  /** Show the ATSU wordmark instead of a title (Home). */
+  brand?: boolean;
   onBack?: () => void;
   right?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  showTabs?: boolean;
+  contentStyle?: object;
 }) {
+  const { isTabRoot } = useNav();
+  const insets = useSafeAreaInsets();
+  const withTabs = showTabs && isTabRoot;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        {onBack ? (
-          <Pressable onPress={onBack} hitSlop={10} style={styles.backButton} accessibilityRole="button">
-            <Text style={styles.backGlyph}>‹</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.brand}>
+      {brand ? (
+        <View style={styles.brandHeader}>
+          <View style={styles.brandRow}>
             <Text style={styles.brandMark}>ATSU</Text>
+            <View style={styles.brandDot} />
           </View>
-        )}
-        <View style={styles.headerText}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
+          <View style={styles.headerActions}>{right}</View>
         </View>
-        <View style={styles.headerRight}>{right}</View>
-      </View>
-      <View style={styles.body}>{children}</View>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      ) : null}
+
+      {!brand && (title || onBack || right) ? (
+        <View style={styles.header}>
+          {onBack ? (
+            <Pressable
+              onPress={onBack}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+            >
+              <Icon name="chevron-back" size={22} color={colors.text} />
+            </Pressable>
+          ) : null}
+          <View style={{ flex: 1 }}>
+            {title ? (
+              <Text style={styles.title} numberOfLines={1}>
+                {title}
+              </Text>
+            ) : null}
+            {subtitle ? (
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.headerActions}>{right}</View>
+        </View>
+      ) : null}
+
+      <View style={[styles.body, contentStyle]}>{children}</View>
+
+      {footer ? (
+        <View style={[styles.footer, { paddingBottom: withTabs ? spacing.md : Math.max(insets.bottom, spacing.lg) }]}>
+          {footer}
+        </View>
+      ) : null}
+
+      {withTabs ? <TabBar /> : null}
     </SafeAreaView>
   );
 }
 
-export { IconButton };
+export { Icon };
+export type { IconName };
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
+  brandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  brandRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3 },
+  brandMark: { ...type.brand, color: colors.text },
+  brandDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+    marginTop: 4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-  },
-  brand: { minWidth: 40 },
-  brandMark: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 2,
   },
   backButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.input,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.card,
+    marginLeft: -6,
   },
-  backGlyph: { color: colors.text, fontSize: 22, lineHeight: 24, marginTop: -2 },
-  headerText: { flex: 1 },
   title: { ...type.title, color: colors.text },
-  subtitle: { ...type.small, color: colors.textDim, marginTop: 1 },
-  headerRight: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  subtitle: { ...type.small, color: colors.textFaint, marginTop: 2, fontWeight: '400' },
+  headerActions: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
   body: { flex: 1 },
   footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: colors.bg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    backgroundColor: colors.card,
   },
+  tabBar: {
+    flexDirection: 'row',
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  tab: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 2 },
+  tabLabel: { ...type.tiny, color: colors.textFaint, fontSize: 10, fontWeight: '600' },
+  tabLabelActive: { color: colors.accent },
 });

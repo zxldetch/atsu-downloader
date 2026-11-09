@@ -103,6 +103,10 @@ export interface Config {
   retryDelay: number;
   /** Demo mode serves bundled fixtures instead of calling atsu.moe. */
   demoMode: boolean;
+  /** Reader layout: continuous vertical strip or page-by-page. */
+  readerMode: 'vertical' | 'paged';
+  /** Keep the screen on while reading. */
+  keepScreenAwake: boolean;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -113,4 +117,6 @@ export const DEFAULT_CONFIG: Config = {
   maxRetries: 3,
   retryDelay: 2,
   demoMode: process.env.EXPO_PUBLIC_DEMO === '1',
+  readerMode: 'vertical',
+  keepScreenAwake: true,
 };

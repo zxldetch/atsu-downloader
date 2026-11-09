@@ -53,22 +53,35 @@ back on.
 
 ## 3. First run
 
-The APK does **not** ship with demo data — you start with an empty library on purpose.
+The APK does **not** ship with demo data — you start with an empty shelf on purpose. The app
+opens on **Home**, with a search bar at the top and four tabs along the bottom: **Home ·
+Search · Shelf · Settings**.
 
-1. Paste a manga link into the box at the top, e.g. `https://atsu.moe/manga/OaKBx`, and tap
-   **Load**. (A bare id like `OaKBx` works too.)
-2. Tap chapters to select them, or type a range in **Chapter range** (`all`, `1-10`,
-   `1,3,5-7`) and tap **Apply**.
-3. Pick **CBZ** (default, best), **PDF**, or **Images**.
-4. Tap **Download N · CBZ** — the queue opens and shows pages landing.
-5. When a chapter finishes: **Save file** opens Android's share sheet (choose *Files* to put
-   the `.cbz` anywhere, or *Drive*), and **Read** opens it in the built-in reader.
+1. Tap the search bar (or the **Search** tab) and paste a manga link, e.g.
+   `https://atsu.moe/manga/OaKBx` — or just the id `OaKBx` — then tap **Load**. Several links
+   at once also work: separate them with spaces or commas and tap **Load 3**.
+2. On the series page, tap chapters to select them, or use a shortcut: **All**, **Unread**,
+   **Latest 5**, **None**. To type a range instead, put `all`, `1-10` or `1,3,5-7` in the
+   range box and tap **Apply**.
+3. Pick **CBZ** (default, best), **PDF**, or **Images** from the format chips.
+4. Tap **Download N** — you land on **Shelf → Downloads** and can watch pages land, pause,
+   resume, retry, or share.
+5. When a chapter finishes, the row shows **Saved**: the share icon opens Android's share
+   sheet (choose *Files* to put the `.cbz` anywhere, or *Drive*), and the play button opens it
+   in the built-in reader. Reading position is remembered, and **Jump back in** on Home puts
+   it one tap away.
 
-Optional: **Settings → Source → Demo mode** turns on the three bundled sample series, if you
-want to click around without any network.
+Reader and download behaviour live in **Settings**: *Reading direction* switches between the
+continuous **Vertical** strip (how webtoons are drawn) and **Paged**; *Keep the screen awake*
+stops the phone sleeping mid-chapter; *Downloads* holds the format, concurrency and retry
+settings.
 
-Permissions you may be asked for: *Photos/Media* — only when you tap **Save to gallery** on
-an `images`-format chapter. Nothing else is requested; nothing is uploaded anywhere.
+Optional: **Settings → Source → Demo mode** turns on three bundled sample series. With it on,
+the **Search** tab lists them as chips, so you can try the queue, reader and CBZ export with
+no network at all.
+
+Permissions you may be asked for: *Photos/Media* — only when you tap **Save to gallery** on an
+`images`-format chapter. Nothing else is requested; nothing is uploaded anywhere.
 
 ---
 

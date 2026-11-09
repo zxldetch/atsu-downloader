@@ -23,6 +23,28 @@ export function parseMangaId(input: string): string | null {
 }
 
 /**
+ * Decide whether a token should be *loaded* rather than used as a shelf search.
+ *
+ * Bare atsu ids (`OaKBx`) are mixed-case, while what people type into a search
+ * box is usually a plain lowercase word (`lantern`). Treating every 3-10
+ * character token as an id would make title search impossible, so the rule is:
+ * a URL/path always loads, a known id always loads, and a bare token only loads
+ * if it carries an uppercase letter or a digit.
+ */
+export function looksLikeMangaTarget(input: string, knownIds: Iterable<string> = []): boolean {
+  const value = input.trim();
+  if (!value) return false;
+
+  for (const id of knownIds) {
+    if (id.toLowerCase() === value.toLowerCase()) return true;
+  }
+
+  if (/[/:.]/.test(value)) return parseMangaId(value) !== null;
+  if (!/^[A-Za-z0-9]{3,10}$/.test(value)) return false;
+  return /[A-Z]/.test(value) || /\d/.test(value);
+}
+
+/**
  * Turn a selection expression into 0-based chapter indices.
  *
  * Supports "all"/"a", "5", "1-10", and mixes like "1,3,5-7" — same grammar as

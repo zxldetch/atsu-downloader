@@ -28,9 +28,46 @@ converters/cbz.py    → src/lib/archive.ts
 converters/pdf.py    → src/lib/archive.ts
 converters/comicinfo.py → src/lib/archive.ts
 config.py            → src/store/AppStore.tsx + src/types.ts
-cli/ + gui/          → src/screens/*
+cli/ + gui/          → src/screens/* (Home, Search, Shelf, Series, Reader, Settings)
 models.py            → src/types.ts
 ```
+
+## Design
+
+The mobile app follows atsu.moe's own visual language rather than the desktop GUI's
+blue-on-grey: a near-black page (`#0A0A0B`), flat cards that sit one shade above it, hairline
+separators instead of borders, a single violet accent (`#7C5CFA`), the `ATSU` wordmark, cover
+art at a 2:3 ratio, and a four-tab bar — **Home · Search · Shelf · Settings**.
+
+| Screen | What it does |
+|---|---|
+| **Home** | Search pill, *Jump back in* rail (continue reading with progress), live *Downloading* strip, and the whole shelf as a cover grid |
+| **Search** | Paste one link or several; live filter over your shelf by title, author or synopsis; demo chips when the demo source is on |
+| **Shelf** | *Library* (filter: all / reading / offline, long-press to remove) and *Downloads* (pause all, resume all, clear finished, share finished archives) |
+| **Series** | Cover hero, synopsis, range box, All / Unread / Latest 5 / None shortcuts, format chips, virtualised chapter list, sticky *Download* bar |
+| **Reader** | Vertical or paged, page scrubber, tap to hide chrome, next-chapter hand-off, keep-awake, prefetches the next two pages |
+
+Everything visual is in `src/theme.ts` (tokens) and `src/components/ui.tsx` (kit). Icons are
+Ionicons, imported from `@expo/vector-icons/Ionicons` directly so only one font ships.
+
+### Why the first build scrolled badly, and what changed
+
+1. **Every page of a chapter was mounted at once.** The reader used a `ScrollView` that mapped
+   all pages, so a 60-page chapter decoded 60 full-res images before showing the first one. It
+   is now a virtualised `FlatList` in both modes, with exact `getItemLayout` offsets computed
+   from page aspects, `windowSize={3}`, and `Image.prefetch` for the next two pages.
+2. **Download progress re-rendered the whole app.** Every job update went straight into React
+   state, and every screen reads that context, so a 3-chapter download repainted the shelf and
+   a 200-row chapter list several times a second. Job updates are now coalesced into one commit
+   per 250 ms and flushed immediately on status changes; status text in chapter rows
+   deliberately omits page counters so those rows don't re-render at all.
+3. **Rows were rebuilt on every render.** Chapter, job, rail and shelf rows are `React.memo`
+   components taking *stable* callbacks that receive an id, instead of a fresh closure per row.
+4. **Android elevation on every card.** Each `elevation` was a render pass; the flat surfaces
+   that atsu uses are also the fast ones. Shadows are gone from list rows.
+5. **Lists were untuned.** Every list sets `initialNumToRender`, `maxToRenderPerBatch`,
+   `windowSize`, `updateCellsBatchingPeriod` and `removeClippedSubviews`, and covers use
+   `cachePolicy="memory-disk"` with a `recyclingKey` so scrolling doesn't re-decode.
 
 ## Quick start (on your phone, ~1 minute)
 

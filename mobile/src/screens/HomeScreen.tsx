@@ -1,234 +1,261 @@
-import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { formatBytes, formatRelativeTime } from '../api/parse';
-import { Banner, Button, Card, Chip, EmptyState, ProgressBar, SectionTitle, TextField } from '../components/ui';
+import { formatRelativeTime } from '../api/parse';
+import { JobRow, RailCard, SeriesCard } from '../components/cards';
+import { Icon } from '../components/icons';
+import { Banner, EmptyState, SectionHeader } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import { colors, radius, spacing, type } from '../theme';
 import type { LibraryEntry } from '../types';
 
-export function HomeScreen() {
-  const { config, library, jobs, loadingManga, lastError, actions } = useApp();
-  const nav = useNav();
-  const [input, setInput] = useState('');
+const GUTTER = spacing.lg;
+const GAP = spacing.md;
 
-  const activeJobs = jobs.filter((job) =>
-    ['queued', 'downloading', 'paused'].includes(job.status),
-  ).length;
+export function HomeScreen() {
+  const { library, jobs, config, lastError, loadingManga, actions } = useApp();
+  const nav = useNav();
+  const { width } = useWindowDimensions();
+
+  const cardWidth = Math.max(120, (width - GUTTER * 2 - GAP) / 2);
+  const railWidth = Math.min(132, Math.max(104, width * 0.29));
+
+  const activeJobs = useMemo(
+    () => jobs.filter((job) => ['queued', 'downloading', 'paused'].includes(job.status)),
+    [jobs],
+  );
 
   const continueReading = useMemo(
     () =>
       library
         .filter((entry) => entry.reading)
         .sort((a, b) => (b.reading?.updatedAt ?? 0) - (a.reading?.updatedAt ?? 0))
-        .slice(0, 8),
+        .slice(0, 10),
     [library],
   );
 
-  const handleLoad = async (value?: string) => {
-    const target = (value ?? input).trim();
-    if (!target) return;
-    const manga = await actions.loadManga(target);
-    if (manga) {
-      setInput('');
-      nav.push({ name: 'manga', mangaId: manga.id });
+  const openManga = useCallback(
+    (mangaId: string) => nav.push({ name: 'manga', mangaId }),
+    [nav],
+  );
+
+  const openReader = useCallback(
+    (mangaId: string) => {
+      const entry = library.find((item) => item.mangaId === mangaId);
+      if (entry?.reading) {
+        nav.push({ name: 'reader', mangaId, chapterId: entry.reading.chapterId });
+      } else {
+        nav.push({ name: 'manga', mangaId });
+      }
+    },
+    [library, nav],
+  );
+
+  const gotoSearch = useCallback(() => nav.go('search'), [nav]);
+  const gotoDownloads = useCallback(() => nav.go('shelf'), [nav]);
+
+  const railMeta = useCallback((entry: LibraryEntry) => {
+    if (entry.reading) {
+      return `Page ${entry.reading.page}/${entry.reading.total}`;
     }
-  };
+    const offline = Object.keys(entry.chapters).length;
+    return offline > 0 ? `${offline} offline` : `${entry.chapterCount} chapters`;
+  }, []);
 
   return (
     <Screen
-      title="Library"
-      subtitle={config.demoMode ? 'Demo data · toggle in Settings' : 'atsumoe · direct from device'}
+      brand
+      showTabs
       right={
-        <>
-          <Button
-            label={activeJobs > 0 ? `Queue ${activeJobs}` : 'Queue'}
-            size="sm"
-            variant={activeJobs > 0 ? 'primary' : 'secondary'}
-            onPress={() => nav.push({ name: 'queue' })}
+        <Pressable
+          onPress={gotoDownloads}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={
+            activeJobs.length > 0 ? `${activeJobs.length} downloads in progress` : 'Downloads'
+          }
+          style={({ pressed }) => [styles.queueButton, pressed && { opacity: 0.6 }]}
+        >
+          <Icon
+            name={activeJobs.length > 0 ? 'arrow-down-circle' : 'arrow-down-circle-outline'}
+            size={23}
+            color={activeJobs.length > 0 ? colors.accent : colors.text}
           />
-          <Button label="⚙" size="sm" onPress={() => nav.push({ name: 'settings' })} />
-        </>
+          {activeJobs.length > 0 ? (
+            <View style={styles.queueBadge}>
+              <Text style={styles.queueBadgeText}>{activeJobs.length}</Text>
+            </View>
+          ) : null}
+        </Pressable>
       }
     >
       <FlatList
         data={library}
         keyExtractor={(entry) => entry.mangaId}
+        numColumns={2}
+        columnWrapperStyle={library.length > 0 ? styles.column : undefined}
         contentContainerStyle={styles.content}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={40}
+        windowSize={5}
+        removeClippedSubviews
+        renderItem={({ item }) => (
+          <SeriesCard entry={item} width={cardWidth} onPress={openManga} />
+        )}
         ListHeaderComponent={
           <View>
-            <Card>
-              <Text style={styles.heroTitle}>Paste a manga link</Text>
-              <Text style={styles.heroBody}>
-                Any atsu.moe link — <Text style={styles.code}>atsu.moe/manga/OaKBx</Text> — or just
-                the id.
-              </Text>
-              <View style={styles.searchRow}>
-                <TextField
-                  value={input}
-                  onChangeText={setInput}
-                  placeholder="https://atsu.moe/manga/…"
-                  onSubmit={() => handleLoad()}
-                  keyboardType="url"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  label="Load"
-                  variant="primary"
-                  loading={loadingManga}
-                  onPress={() => handleLoad()}
-                  style={{ width: 88 }}
-                />
-              </View>
-
-              {lastError ? (
-                <Banner onDismiss={actions.clearError}>{lastError}</Banner>
+            <Pressable
+              onPress={gotoSearch}
+              accessibilityRole="button"
+              accessibilityLabel="Search manga or paste a link"
+              style={({ pressed }) => [styles.searchPill, pressed && { opacity: 0.8 }]}
+            >
+              <Icon name="search" size={17} color={colors.textFaint} />
+              <Text style={styles.searchPillText}>Search manga or paste a link</Text>
+              {loadingManga ? (
+                <Text style={[styles.searchPillText, { color: colors.accent }]}>Loading…</Text>
               ) : null}
+            </Pressable>
 
-              {config.demoMode ? (
-                <View style={styles.demoRow}>
-                  <Text style={styles.demoLabel}>Try a demo series</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                    {actions.demoLibrary().map((manga) => (
-                      <Chip
-                        key={manga.id}
-                        label={manga.title}
-                        onPress={() => handleLoad(manga.id)}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
-            </Card>
+            {lastError ? <Banner onDismiss={actions.clearError}>{lastError}</Banner> : null}
 
             {continueReading.length > 0 ? (
               <>
-                <SectionTitle title="Continue reading" />
-                <ScrollView
+                <SectionHeader
+                  title="Jump back in"
+                  action="Shelf"
+                  onAction={() => nav.go('shelf')}
+                />
+                <FlatList
                   horizontal
+                  data={continueReading}
+                  keyExtractor={(entry) => entry.mangaId}
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: spacing.md, paddingRight: spacing.md }}
-                >
-                  {continueReading.map((entry) => (
-                    <Card
-                      key={entry.mangaId}
-                      style={styles.continueCard}
-                      onPress={() =>
-                        entry.reading &&
-                        nav.push({
-                          name: 'reader',
-                          mangaId: entry.mangaId,
-                          chapterId: entry.reading.chapterId,
-                        })
+                  contentContainerStyle={styles.rail}
+                  initialNumToRender={4}
+                  maxToRenderPerBatch={4}
+                  windowSize={3}
+                  removeClippedSubviews
+                  renderItem={({ item }) => (
+                    <RailCard
+                      mangaId={item.mangaId}
+                      title={item.title}
+                      coverUrl={item.coverUrl}
+                      meta={railMeta(item)}
+                      width={railWidth}
+                      progress={
+                        item.reading
+                          ? { value: item.reading.page, total: Math.max(1, item.reading.total) }
+                          : undefined
                       }
-                    >
-                      <Image source={{ uri: entry.coverUrl }} style={styles.continueCover} contentFit="cover" />
-                      <Text style={styles.continueTitle} numberOfLines={2}>
-                        {entry.title}
-                      </Text>
-                      <Text style={styles.continueMeta} numberOfLines={1}>
-                        {entry.reading
-                          ? `Page ${entry.reading.page}/${entry.reading.total}`
-                          : 'Not started'}
-                      </Text>
-                      <ProgressBar
-                        value={entry.reading?.page ?? 0}
-                        total={entry.reading?.total ?? 1}
-                        height={4}
-                      />
-                    </Card>
-                  ))}
-                </ScrollView>
+                      onPress={openReader}
+                    />
+                  )}
+                />
               </>
             ) : null}
 
-            {library.length > 0 ? <SectionTitle title="Saved manga" /> : null}
+            {activeJobs.length > 0 ? (
+              <>
+                <SectionHeader
+                  title="Downloading"
+                  action="Open queue"
+                  onAction={gotoDownloads}
+                />
+                <View style={styles.jobCard}>
+                  {activeJobs.slice(0, 3).map((job) => (
+                    <JobRow
+                      key={job.id}
+                      job={job}
+                      onPause={actions.pauseJob}
+                      onResume={actions.resumeJob}
+                      onCancel={actions.cancelJob}
+                      onRetry={actions.retryJob}
+                      onRemove={actions.removeJob}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {library.length > 0 ? (
+              <SectionHeader
+                title="Your shelf"
+                action="See all"
+                onAction={() => nav.go('shelf')}
+              />
+            ) : null}
+
+            {library.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon="library-outline"
+                  title="Your shelf is empty"
+                  body={
+                    config.demoMode
+                      ? 'Demo mode is on. Open Search to load one of the bundled series and try the queue, reader and exports.'
+                      : 'Paste an atsu.moe link in Search to add a series, download chapters, and read them offline.'
+                  }
+                  action="Find something to read"
+                  onAction={gotoSearch}
+                />
+              </View>
+            ) : null}
+
+            {library.length > 0 ? (
+              <View style={styles.recentRow}>
+                <Text style={styles.recentText}>
+                  {library.length} series ·{' '}
+                  {library.reduce((sum, entry) => sum + Object.keys(entry.chapters).length, 0)}{' '}
+                  chapters offline
+                  {library.length > 0
+                    ? ` · updated ${formatRelativeTime(
+                        Math.max(...library.map((entry) => entry.addedAt)),
+                      )}`
+                    : ''}
+                </Text>
+              </View>
+            ) : null}
           </View>
-        }
-        renderItem={({ item }) => (
-          <LibraryRow entry={item} onOpen={() => nav.push({ name: 'manga', mangaId: item.mangaId })} />
-        )}
-        ListEmptyComponent={
-          <EmptyState
-            title="Nothing here yet"
-            body={
-              config.demoMode
-                ? 'Demo mode is on, so the bundled series are ready to browse. Load one above to try the queue, reader and export.'
-                : 'Load a manga from atsu.moe to start building your offline library.'
-            }
-          />
         }
       />
     </Screen>
   );
 }
 
-function LibraryRow({ entry, onOpen }: { entry: LibraryEntry; onOpen: () => void }) {
-  const downloaded = Object.keys(entry.chapters).length;
-  const reading = entry.reading;
-  const lastUpdate = Math.max(
-    entry.addedAt,
-    ...Object.values(entry.chapters).map((chapter) => chapter.updatedAt),
-  );
-  const totalBytes = Object.values(entry.chapters).reduce((sum, ch) => sum + ch.bytes, 0);
-
-  return (
-    <Card style={styles.row} onPress={onOpen}>
-      <Image source={{ uri: entry.coverUrl }} style={styles.rowCover} contentFit="cover" />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {entry.title}
-        </Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>
-          {entry.chapterCount} chapters · {downloaded} offline
-          {totalBytes > 0 ? ` · ${formatBytes(totalBytes)}` : ''}
-        </Text>
-        {reading ? (
-          <View style={{ marginTop: 8 }}>
-            <ProgressBar value={reading.page} total={reading.total} height={4} />
-            <Text style={styles.rowReading}>
-              Chapter {reading.chapterId.split('-ch-').pop() ?? ''} · page {reading.page}/
-              {reading.total}
-            </Text>
-          </View>
-        ) : (
-          <Text style={styles.rowReading}>Added {formatRelativeTime(lastUpdate)}</Text>
-        )}
-      </View>
-      <Text style={styles.rowChevron}>›</Text>
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  heroTitle: { ...type.subtitle, color: colors.text, marginBottom: 2 },
-  heroBody: { ...type.small, color: colors.textDim, lineHeight: 17, marginBottom: spacing.md },
-  code: { color: colors.accent, fontFamily: 'monospace' },
-  searchRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  demoRow: { marginTop: spacing.lg },
-  demoLabel: {
-    ...type.small,
-    color: colors.textFaint,
-    marginBottom: spacing.sm,
-    letterSpacing: 0.4,
-  },
-  continueCard: { width: 132, padding: spacing.sm, gap: 6 },
-  continueCover: { width: '100%', height: 168, borderRadius: radius.md, backgroundColor: colors.input },
-  continueTitle: { ...type.small, color: colors.text, fontWeight: '600' },
-  continueMeta: { ...type.small, color: colors.textFaint, fontWeight: '400' },
-  row: {
+  content: { paddingHorizontal: GUTTER, paddingBottom: spacing.xxxl },
+  column: { gap: GAP, justifyContent: 'space-between' },
+  searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    marginTop: spacing.md,
+    gap: spacing.sm,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xs,
   },
-  rowCover: { width: 54, height: 76, borderRadius: radius.sm, backgroundColor: colors.input },
-  rowTitle: { ...type.subtitle, color: colors.text, fontSize: 15 },
-  rowMeta: { ...type.small, color: colors.textDim, fontWeight: '400', marginTop: 2 },
-  rowReading: { ...type.small, color: colors.textFaint, fontWeight: '400', marginTop: 5 },
-  rowChevron: { color: colors.textFaint, fontSize: 24, marginLeft: 2 },
+  searchPillText: { ...type.body, color: colors.textFaint, flex: 1 },
+  rail: { gap: spacing.md, paddingRight: spacing.lg },
+  jobCard: { backgroundColor: colors.card, borderRadius: radius.lg, paddingVertical: spacing.xs },
+  emptyWrap: { marginTop: spacing.xxl },
+  recentRow: { paddingTop: spacing.xl },
+  recentText: { ...type.tiny, color: colors.textFaint, fontWeight: '500' },
+  queueButton: { padding: spacing.xs },
+  queueBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueBadgeText: { color: colors.onAccent, fontSize: 9, fontWeight: '800' },
 });

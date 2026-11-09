@@ -1,4 +1,9 @@
-/** Small, dependency-free UI kit shared by every screen. */
+/**
+ * The UI kit: every screen is built from these pieces.
+ *
+ * Style rules that come from atsu.moe: flat surfaces, no drop shadows, a single
+ * violet accent, sentence-case section headers, and generous 16pt gutters.
+ */
 
 import React from 'react';
 import {
@@ -13,7 +18,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, shadow, spacing, type } from '../theme';
+import { colors, radius, spacing, type } from '../theme';
+import { Icon, type IconName } from './icons';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'md' | 'sm';
@@ -34,62 +40,63 @@ export function Button({
   size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
-  icon?: string;
+  icon?: IconName;
   style?: StyleProp<ViewStyle>;
 }) {
-  const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }> = {
-    primary: { bg: colors.accentDim, fg: '#fff', border: colors.accent },
-    secondary: { bg: colors.input, fg: colors.text, border: colors.border },
-    ghost: { bg: 'transparent', fg: colors.textDim, border: 'transparent' },
-    danger: { bg: 'rgba(248, 81, 73, 0.12)', fg: colors.error, border: 'rgba(248, 81, 73, 0.4)' },
+  const palette: Record<ButtonVariant, { bg: string; fg: string }> = {
+    primary: { bg: colors.accent, fg: colors.onAccent },
+    secondary: { bg: colors.input, fg: colors.text },
+    ghost: { bg: 'transparent', fg: colors.textDim },
+    danger: { bg: colors.errorSoft, fg: colors.error },
   };
   const tone = palette[variant];
   const inactive = disabled || loading;
+  const small = size === 'sm';
 
   return (
     <Pressable
       onPress={inactive ? undefined : onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: !!inactive }}
       style={({ pressed }) => [
         styles.button,
-        size === 'sm' && styles.buttonSm,
-        {
-          backgroundColor: tone.bg,
-          borderColor: tone.border,
-          opacity: inactive ? 0.45 : pressed ? 0.78 : 1,
-        },
+        small && styles.buttonSm,
+        { backgroundColor: tone.bg, opacity: inactive ? 0.45 : pressed ? 0.8 : 1 },
         style,
       ]}
     >
       {loading ? (
         <ActivityIndicator size="small" color={tone.fg} />
       ) : (
-        <Text
-          style={[
-            styles.buttonLabel,
-            size === 'sm' && styles.buttonLabelSm,
-            { color: tone.fg },
-          ]}
-          numberOfLines={1}
-        >
-          {icon ? `${icon}  ${label}` : label}
-        </Text>
+        <View style={styles.buttonInner}>
+          {icon ? <Icon name={icon} size={small ? 15 : 17} color={tone.fg} /> : null}
+          <Text
+            numberOfLines={1}
+            style={[small ? styles.buttonLabelSm : styles.buttonLabel, { color: tone.fg }]}
+          >
+            {label}
+          </Text>
+        </View>
       )}
     </Pressable>
   );
 }
 
 export function IconButton({
-  glyph,
+  name,
   onPress,
   badge,
   accessibilityLabel,
+  variant = 'plain',
+  size = 20,
 }: {
-  glyph: string;
+  name: IconName;
   onPress?: () => void;
   badge?: number;
   accessibilityLabel: string;
+  variant?: 'plain' | 'filled';
+  size?: number;
 }) {
   return (
     <Pressable
@@ -97,9 +104,13 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={10}
-      style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.6 }]}
+      style={({ pressed }) => [
+        styles.iconButton,
+        variant === 'filled' && styles.iconButtonFilled,
+        { opacity: pressed ? 0.55 : 1 },
+      ]}
     >
-      <Text style={styles.iconGlyph}>{glyph}</Text>
+      <Icon name={name} size={size} color={colors.text} />
       {badge && badge > 0 ? (
         <View style={styles.iconBadge}>
           <Text style={styles.iconBadgeText}>{badge > 99 ? '99+' : badge}</Text>
@@ -122,7 +133,7 @@ export function Card({
     return (
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [styles.card, pressed && { borderColor: colors.borderStrong }, style]}
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed, style]}
       >
         {children}
       </Pressable>
@@ -135,7 +146,7 @@ export function ProgressBar({
   value,
   total,
   color = colors.accent,
-  height = 6,
+  height = 3,
 }: {
   value: number;
   total: number;
@@ -144,7 +155,7 @@ export function ProgressBar({
 }) {
   const ratio = total > 0 ? Math.min(1, Math.max(0, value / total)) : 0;
   return (
-    <View style={[styles.progressTrack, { height }]}>
+    <View style={[styles.progressTrack, { height, borderRadius: height }]}>
       <View
         style={{
           width: `${ratio * 100}%`,
@@ -162,44 +173,44 @@ export function Chip({
   active,
   onPress,
   tone = 'default',
+  icon,
 }: {
   label: string;
   active?: boolean;
   onPress?: () => void;
   tone?: 'default' | 'success' | 'warning' | 'error' | 'accent';
+  icon?: IconName;
 }) {
   const tones: Record<string, { bg: string; fg: string }> = {
     default: { bg: colors.input, fg: colors.textDim },
-    accent: { bg: 'rgba(88, 166, 255, 0.14)', fg: colors.accent },
-    success: { bg: 'rgba(63, 185, 80, 0.14)', fg: colors.success },
-    warning: { bg: 'rgba(210, 153, 34, 0.16)', fg: colors.warning },
-    error: { bg: 'rgba(248, 81, 73, 0.14)', fg: colors.error },
+    accent: { bg: colors.accentSoft, fg: colors.accent },
+    success: { bg: colors.successSoft, fg: colors.success },
+    warning: { bg: colors.warningSoft, fg: colors.warning },
+    error: { bg: colors.errorSoft, fg: colors.error },
   };
-  const palette = active ? { bg: 'rgba(88, 166, 255, 0.18)', fg: colors.accent } : tones[tone];
+  const palette = active ? { bg: colors.accent, fg: colors.onAccent } : tones[tone];
 
   const content = (
-    <Text style={[styles.chipText, { color: palette.fg }]} numberOfLines={1}>
-      {label}
-    </Text>
+    <View style={styles.chipInner}>
+      {icon ? <Icon name={icon} size={12} color={palette.fg} /> : null}
+      <Text style={[styles.chipText, { color: palette.fg }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
   );
 
   if (!onPress) {
-    return (
-      <View style={[styles.chip, { backgroundColor: palette.bg }]}>{content}</View>
-    );
+    return <View style={[styles.chip, { backgroundColor: palette.bg }]}>{content}</View>;
   }
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityState={{ selected: !!active }}
       style={({ pressed }) => [
         styles.chip,
-        {
-          backgroundColor: palette.bg,
-          borderColor: active ? colors.accent : 'transparent',
-          opacity: pressed ? 0.7 : 1,
-        },
+        { backgroundColor: palette.bg, opacity: pressed ? 0.72 : 1 },
       ]}
     >
       {content}
@@ -207,21 +218,24 @@ export function Chip({
   );
 }
 
-export function SectionTitle({
+/** atsu-style section header: sentence case, optional violet action. */
+export function SectionHeader({
   title,
   action,
   onAction,
+  style,
 }: {
   title: string;
   action?: string;
   onAction?: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.sectionTitleRow}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={[styles.sectionHeader, style]}>
+      <Text style={styles.sectionHeaderText}>{title}</Text>
       {action ? (
-        <Pressable onPress={onAction} hitSlop={8}>
-          <Text style={styles.sectionActionText}>{action}</Text>
+        <Pressable onPress={onAction} hitSlop={10}>
+          <Text style={styles.sectionAction}>{action}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -229,11 +243,13 @@ export function SectionTitle({
 }
 
 export function EmptyState({
+  icon = 'book-outline',
   title,
   body,
   action,
   onAction,
 }: {
+  icon?: IconName;
   title: string;
   body: string;
   action?: string;
@@ -241,10 +257,20 @@ export function EmptyState({
 }) {
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyGlyph}>◍</Text>
+      <View style={styles.emptyIcon}>
+        <Icon name={icon} size={26} color={colors.textFaint} />
+      </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyBody}>{body}</Text>
-      {action ? <Button label={action} onPress={onAction} size="sm" style={{ marginTop: 14 }} /> : null}
+      {action ? (
+        <Button
+          label={action}
+          onPress={onAction}
+          size="sm"
+          variant="primary"
+          style={{ marginTop: spacing.lg }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -278,6 +304,8 @@ export function TextField({
   keyboardType,
   style,
   editable = true,
+  icon,
+  autoFocus,
 }: {
   value: string;
   onChangeText: (value: string) => void;
@@ -287,21 +315,72 @@ export function TextField({
   keyboardType?: 'default' | 'number-pad' | 'url';
   style?: StyleProp<TextStyle>;
   editable?: boolean;
+  icon?: IconName;
+  autoFocus?: boolean;
 }) {
   return (
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={colors.textFaint}
-      onSubmitEditing={onSubmit}
-      returnKeyType="go"
-      autoCapitalize={autoCapitalize}
-      autoCorrect={false}
-      keyboardType={keyboardType}
-      editable={editable}
-      style={[styles.textField, style]}
-    />
+    <View style={styles.textFieldWrap}>
+      {icon ? (
+        <View style={styles.textFieldIcon}>
+          <Icon name={icon} size={17} color={colors.textFaint} />
+        </View>
+      ) : null}
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textFaint}
+        onSubmitEditing={onSubmit}
+        returnKeyType="go"
+        autoCapitalize={autoCapitalize}
+        autoCorrect={false}
+        autoFocus={autoFocus}
+        keyboardType={keyboardType}
+        editable={editable}
+        selectionColor={colors.accent}
+        style={[styles.textField, icon ? styles.textFieldWithIcon : null, style]}
+      />
+    </View>
+  );
+}
+
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  style,
+}: {
+  options: { key: T; label: string; icon?: IconName }[];
+  value: T;
+  onChange: (key: T) => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[styles.segmented, style]}>
+      {options.map((option) => {
+        const active = option.key === value;
+        return (
+          <Pressable
+            key={option.key}
+            onPress={() => onChange(option.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            style={[styles.segment, active && styles.segmentActive]}
+          >
+            {option.icon ? (
+              <Icon
+                name={option.icon}
+                size={14}
+                color={active ? colors.text : colors.textDim}
+              />
+            ) : null}
+            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -326,32 +405,36 @@ export function Stepper({
 }) {
   const clamp = (next: number) => Math.min(max, Math.max(min, next));
   return (
-    <View style={styles.stepperRow}>
-      <View style={{ flex: 1, paddingRight: spacing.md }}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    <View style={styles.settingRow}>
+      <View style={styles.settingText}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        {hint ? <Text style={styles.settingHint}>{hint}</Text> : null}
       </View>
       <View style={styles.stepperControls}>
         <Pressable
           onPress={() => onChange(clamp(value - step))}
           disabled={value <= min}
+          hitSlop={4}
+          accessibilityLabel={`Decrease ${label}`}
           style={({ pressed }) => [
             styles.stepperButton,
-            { opacity: value <= min ? 0.35 : pressed ? 0.6 : 1 },
+            { opacity: value <= min ? 0.3 : pressed ? 0.6 : 1 },
           ]}
         >
-          <Text style={styles.stepperGlyph}>−</Text>
+          <Icon name="remove" size={16} color={colors.text} />
         </Pressable>
         <Text style={styles.stepperValue}>{format ? format(value) : value}</Text>
         <Pressable
           onPress={() => onChange(clamp(value + step))}
           disabled={value >= max}
+          hitSlop={4}
+          accessibilityLabel={`Increase ${label}`}
           style={({ pressed }) => [
             styles.stepperButton,
-            { opacity: value >= max ? 0.35 : pressed ? 0.6 : 1 },
+            { opacity: value >= max ? 0.3 : pressed ? 0.6 : 1 },
           ]}
         >
-          <Text style={styles.stepperGlyph}>+</Text>
+          <Icon name="add" size={16} color={colors.text} />
         </Pressable>
       </View>
     </View>
@@ -373,15 +456,16 @@ export function Toggle({
     <Pressable
       onPress={() => onChange(!value)}
       accessibilityRole="switch"
+      accessibilityLabel={label}
       accessibilityState={{ checked: value }}
-      style={styles.stepperRow}
+      style={styles.settingRow}
     >
-      <View style={{ flex: 1, paddingRight: spacing.md }}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+      <View style={styles.settingText}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        {hint ? <Text style={styles.settingHint}>{hint}</Text> : null}
       </View>
-      <View style={[styles.toggleTrack, value && { backgroundColor: colors.accentDim, borderColor: colors.accent }]}>
-        <View style={[styles.toggleThumb, value ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }]} />
+      <View style={[styles.toggleTrack, value && styles.toggleTrackOn]}>
+        <View style={[styles.toggleThumb, value && styles.toggleThumbOn]} />
       </View>
     </Pressable>
   );
@@ -397,172 +481,218 @@ export function Banner({
   onDismiss?: () => void;
 }) {
   const tones = {
-    error: { bg: 'rgba(248, 81, 73, 0.12)', border: 'rgba(248, 81, 73, 0.45)', fg: colors.error },
-    info: { bg: 'rgba(88, 166, 255, 0.1)', border: 'rgba(88, 166, 255, 0.35)', fg: colors.accent },
-    warning: { bg: 'rgba(210, 153, 34, 0.12)', border: 'rgba(210, 153, 34, 0.4)', fg: colors.warning },
+    error: { bg: colors.errorSoft, fg: colors.error },
+    info: { bg: colors.accentSoft, fg: colors.accent },
+    warning: { bg: colors.warningSoft, fg: colors.warning },
   }[tone];
 
   return (
-    <View style={[styles.banner, { backgroundColor: tones.bg, borderColor: tones.border }]}>
+    <View style={[styles.banner, { backgroundColor: tones.bg }]}>
       <Text style={[styles.bannerText, { color: tones.fg }]}>{children}</Text>
       {onDismiss ? (
-        <Pressable onPress={onDismiss} hitSlop={8}>
-          <Text style={{ color: tones.fg, fontSize: 16 }}>✕</Text>
+        <Pressable onPress={onDismiss} hitSlop={10} accessibilityLabel="Dismiss">
+          <Icon name="close" size={15} color={tones.fg} />
         </Pressable>
       ) : null}
     </View>
   );
 }
 
+export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.divider, style]} />;
+}
+
+export function StatTile({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon: IconName;
+}) {
+  return (
+    <View style={styles.statTile}>
+      <Icon name={icon} size={16} color={colors.accent} />
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   button: {
-    height: 44,
-    paddingHorizontal: spacing.lg,
+    height: 46,
+    paddingHorizontal: spacing.xl,
     borderRadius: radius.md,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
   },
   buttonSm: { height: 34, paddingHorizontal: spacing.md, borderRadius: radius.sm },
-  buttonLabel: { ...type.subtitle, letterSpacing: 0.2 },
+  buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  buttonLabel: { ...type.subtitle, letterSpacing: 0.1 },
   buttonLabelSm: { ...type.small, fontWeight: '600' },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.input,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  iconGlyph: { color: colors.text, fontSize: 17 },
+  iconButtonFilled: { backgroundColor: colors.input },
   iconBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
+    top: 1,
+    right: 0,
+    minWidth: 17,
+    height: 17,
     paddingHorizontal: 4,
     borderRadius: 9,
-    backgroundColor: colors.accentDim,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.bg,
   },
-  iconBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  iconBadgeText: { color: colors.onAccent, fontSize: 9, fontWeight: '800' },
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.lg,
-    ...shadow.card,
   },
+  cardPressed: { backgroundColor: colors.input },
   progressTrack: {
-    backgroundColor: colors.input,
-    borderRadius: radius.pill,
+    backgroundColor: colors.inputStrong,
     overflow: 'hidden',
     width: '100%',
   },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    maxWidth: 220,
+    maxWidth: 240,
   },
-  chipText: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
-  sectionTitleRow: {
+  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  chipText: { fontSize: 12, fontWeight: '600', letterSpacing: 0.1 },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xxl,
+    marginBottom: spacing.md,
   },
-  sectionTitle: {
-    ...type.small,
-    color: colors.textDim,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    fontWeight: '700',
+  sectionHeaderText: { ...type.section, color: colors.text },
+  sectionAction: { ...type.small, color: colors.accent, fontWeight: '700' },
+  empty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
   },
-  sectionActionText: { ...type.small, color: colors.accent, fontWeight: '600' },
-  empty: { alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.lg },
-  emptyGlyph: { fontSize: 34, color: colors.borderStrong, marginBottom: spacing.md },
-  emptyTitle: { ...type.subtitle, color: colors.text, marginBottom: spacing.xs },
-  emptyBody: {
-    ...type.body,
-    color: colors.textDim,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 320,
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
+  emptyTitle: { ...type.subtitle, color: colors.text, marginBottom: 6 },
+  emptyBody: { ...type.body, color: colors.textDim, textAlign: 'center', lineHeight: 20, maxWidth: 300 },
   field: { marginBottom: spacing.lg },
-  fieldLabel: { ...type.body, color: colors.text, fontWeight: '600', marginBottom: 4 },
-  fieldHint: { ...type.small, color: colors.textFaint, lineHeight: 16 },
+  fieldLabel: { ...type.body, color: colors.text, fontWeight: '600', marginBottom: 6 },
+  fieldHint: { ...type.small, color: colors.textFaint, lineHeight: 17 },
+  textFieldWrap: { position: 'relative', justifyContent: 'center' },
+  textFieldIcon: { position: 'absolute', left: 14, zIndex: 1 },
   textField: {
     height: 46,
     borderRadius: radius.md,
     backgroundColor: colors.input,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     color: colors.text,
     fontSize: 14,
   },
-  stepperRow: {
+  textFieldWithIcon: { paddingLeft: 40 },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    padding: 3,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+  },
+  segmentActive: { backgroundColor: colors.inputStrong },
+  segmentText: { ...type.small, color: colors.textDim, fontWeight: '600' },
+  segmentTextActive: { color: colors.text },
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    minHeight: 56,
   },
+  settingText: { flex: 1, paddingRight: spacing.md },
+  settingLabel: { ...type.body, color: colors.text, fontWeight: '600' },
+  settingHint: { ...type.small, color: colors.textFaint, lineHeight: 16, marginTop: 2 },
   stepperControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   stepperButton: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: radius.sm,
     backgroundColor: colors.input,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperGlyph: { color: colors.text, fontSize: 18, lineHeight: 20 },
   stepperValue: {
     ...type.body,
     color: colors.text,
-    minWidth: 44,
+    minWidth: 34,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
+    fontWeight: '600',
   },
   toggleTrack: {
-    width: 50,
-    height: 30,
+    width: 46,
+    height: 28,
     borderRadius: radius.pill,
-    backgroundColor: colors.input,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.inputStrong,
     padding: 3,
+    justifyContent: 'center',
   },
+  toggleTrackOn: { backgroundColor: colors.accent },
   toggleThumb: {
     width: 22,
     height: 22,
     borderRadius: 11,
     backgroundColor: colors.text,
   },
+  toggleThumbOn: { alignSelf: 'flex-end' },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.md,
-    borderWidth: 1,
     marginBottom: spacing.md,
   },
-  bannerText: { ...type.body, flex: 1, lineHeight: 19 },
+  bannerText: { ...type.small, flex: 1, lineHeight: 18, fontWeight: '500' },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  statTile: {
+    flex: 1,
+    minWidth: 78,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    gap: 3,
+  },
+  statValue: { ...type.title, color: colors.text, fontSize: 17 },
+  statLabel: { ...type.tiny, color: colors.textFaint, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 10 },
 });

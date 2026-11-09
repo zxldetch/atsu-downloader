@@ -67,6 +67,8 @@ interface AppActions {
   getManga: (mangaId: string) => MangaInfo | null;
   enqueue: (manga: MangaInfo, chapters: Chapter[], format: OutputFormat) => number;
   pauseJob: (id: string) => void;
+  pauseAll: () => void;
+  resumeAll: () => void;
   resumeJob: (id: string) => void;
   cancelJob: (id: string) => void;
   retryJob: (id: string) => void;
@@ -76,6 +78,8 @@ interface AppActions {
   deleteChapter: (mangaId: string, chapterId: string) => Promise<void>;
   removeFromLibrary: (mangaId: string) => Promise<void>;
   clearAllData: () => Promise<void>;
+  /** Delete downloaded files but keep the shelf and reading progress. */
+  clearDownloads: () => Promise<void>;
   clearError: () => void;
   chapterPages: (manga: MangaInfo, chapter: Chapter) => Promise<Page[]>;
   demoLibrary: () => MangaInfo[];
@@ -113,6 +117,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   configRef.current = state.config;
 
   const queueRef = useRef<DownloadQueue | null>(null);
+
+  /**
+   * Job updates arrive several times a second while pages download. Pushing each
+   * one into React state re-renders every mounted screen, which is what made the
+   * first build's lists stutter. Coalesce them into one commit every ~250 ms and
+   * flush immediately whenever a job changes status (so the UI never lies about
+   * a download that just finished or failed).
+   */
+  const pendingJobs = useRef(new Map<string, DownloadJob>());
+  const appliedStatus = useRef(new Map<string, string>());
+  const jobFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const log = useCallback((message: string) => {
     setState((prev) => ({
@@ -156,15 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             retryDelay: configRef.current.retryDelay,
           });
         },
-        onJob: (job) => {
-          setState((prev) => {
-            const jobs = prev.jobs.some((entry) => entry.id === job.id)
-              ? prev.jobs.map((entry) => (entry.id === job.id ? job : entry))
-              : [...prev.jobs, job];
-            return { ...prev, jobs };
-          });
-          schedulePersist();
-        },
+        onJob: queueJobUpdate,
         onLibraryUpdate: (job) => {
           if (job.status !== 'done') return;
           setState((prev) => {
@@ -196,6 +203,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       queueRef.current = queue;
       queue.hydrate(jobs);
+      for (const job of queue.list()) appliedStatus.current.set(job.id, job.status);
 
       setState((prev) => ({ ...prev, hydrated: true, config, library, jobs: queue.list() }));
     })();
@@ -222,6 +230,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     }, 500);
   }, []);
+
+  const flushJobs = useCallback(() => {
+    if (jobFlushTimer.current) {
+      clearTimeout(jobFlushTimer.current);
+      jobFlushTimer.current = null;
+    }
+    if (pendingJobs.current.size === 0) return;
+
+    const updates = [...pendingJobs.current.values()];
+    pendingJobs.current.clear();
+    for (const job of updates) appliedStatus.current.set(job.id, job.status);
+
+    setState((prev) => {
+      const byId = new Map(prev.jobs.map((entry) => [entry.id, entry]));
+      for (const job of updates) byId.set(job.id, job);
+      return { ...prev, jobs: [...byId.values()] };
+    });
+    schedulePersist();
+  }, [schedulePersist]);
+
+  const queueJobUpdate = useCallback(
+    (job: DownloadJob) => {
+      const statusChanged = appliedStatus.current.get(job.id) !== job.status;
+      pendingJobs.current.set(job.id, job);
+      if (statusChanged) {
+        flushJobs();
+        return;
+      }
+      if (!jobFlushTimer.current) jobFlushTimer.current = setTimeout(flushJobs, 250);
+    },
+    [flushJobs],
+  );
 
   /* ---------------------------------------------------------------- actions */
 
@@ -345,6 +385,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getManga,
         enqueue,
         pauseJob: (id) => queueRef.current?.pause(id),
+        pauseAll: () => {
+          for (const job of queueRef.current?.list() ?? []) {
+            if (job.status === 'downloading' || job.status === 'queued') queueRef.current?.pause(job.id);
+          }
+        },
+        resumeAll: () => {
+          for (const job of queueRef.current?.list() ?? []) {
+            if (job.status === 'paused') queueRef.current?.resume(job.id);
+          }
+        },
         resumeJob: (id) => queueRef.current?.resume(id),
         cancelJob: (id) => queueRef.current?.cancel(id),
         retryJob: (id) => queueRef.current?.retry(id),
@@ -397,6 +447,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setState((prev) => ({
             ...prev,
             library: prev.library.filter((entry) => entry.mangaId !== mangaId),
+          }));
+          schedulePersist();
+        },
+        clearDownloads: async () => {
+          const queue = queueRef.current;
+          for (const job of queue?.list() ?? []) {
+            if (job.status === 'downloading' || job.status === 'queued' || job.status === 'paused') {
+              queue?.cancel(job.id);
+            }
+          }
+          await storage.clearAllDownloads();
+          queue?.clearFinished();
+          pendingJobs.current.clear();
+          appliedStatus.current.clear();
+          setState((prev) => ({
+            ...prev,
+            jobs: [],
+            library: prev.library.map((entry) => ({ ...entry, chapters: {} })),
           }));
           schedulePersist();
         },

@@ -5,9 +5,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavProvider, useNav } from './src/navigation';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { MangaScreen } from './src/screens/MangaScreen';
-import { QueueScreen } from './src/screens/QueueScreen';
 import { ReaderScreen } from './src/screens/ReaderScreen';
+import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { ShelfScreen } from './src/screens/ShelfScreen';
 import { AppProvider, useApp } from './src/store/AppStore';
 import { colors, spacing, type } from './src/theme';
 
@@ -18,9 +19,12 @@ function Router() {
   if (!hydrated) {
     return (
       <View style={styles.boot}>
-        <Text style={styles.bootMark}>ATSU</Text>
+        <View style={styles.bootRow}>
+          <Text style={styles.bootMark}>ATSU</Text>
+          <View style={styles.bootDot} />
+        </View>
         <ActivityIndicator color={colors.accent} />
-        <Text style={styles.bootText}>Restoring library…</Text>
+        <Text style={styles.bootText}>Restoring your shelf…</Text>
       </View>
     );
   }
@@ -28,10 +32,12 @@ function Router() {
   switch (route.name) {
     case 'manga':
       return <MangaScreen mangaId={route.mangaId} />;
-    case 'queue':
-      return <QueueScreen />;
     case 'reader':
       return <ReaderScreen mangaId={route.mangaId} chapterId={route.chapterId} />;
+    case 'search':
+      return <SearchScreen />;
+    case 'shelf':
+      return <ShelfScreen initialTab={route.tab} />;
     case 'settings':
       return <SettingsScreen />;
     case 'home':
@@ -59,8 +65,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  bootMark: { ...type.display, color: colors.accent, letterSpacing: 6 },
-  bootText: { ...type.small, color: colors.textDim },
+  bootRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: spacing.sm },
+  bootMark: { ...type.brand, fontSize: 26, letterSpacing: 4, color: colors.text },
+  bootDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent, marginTop: 6 },
+  bootText: { ...type.small, color: colors.textFaint, fontWeight: '500' },
 });

@@ -7,11 +7,11 @@
     "icon": "./assets/icon.png",
     "scheme": "atsumobile",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0d1117",
+    "backgroundColor": "#0A0A0B",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0d1117"
+      "backgroundColor": "#0A0A0B"
     },
     "ios": {
       "supportsTablet": true,
@@ -23,19 +23,23 @@
     "android": {
       "package": "moe.atsu.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#0d1117",
+        "backgroundColor": "#0A0A0B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.INTERNET"]
+      "permissions": [
+        "android.permission.INTERNET"
+      ]
     },
     "web": {
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-media-library"]
+    "plugins": [
+      "expo-media-library"
+    ]
   }
 }

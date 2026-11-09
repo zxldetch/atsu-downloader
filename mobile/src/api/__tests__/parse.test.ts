@@ -2,6 +2,7 @@ import {
   chapterLabel,
   formatBytes,
   formatChapterNumber,
+  looksLikeMangaTarget,
   parseChapterSelection,
   parseMangaId,
   sanitizeFilename,
@@ -27,6 +28,28 @@ describe('parseMangaId', () => {
   it('keeps the desktop app\'s short-id heuristic', () => {
     expect(parseMangaId('abc')).toBe('abc');
     expect(parseMangaId('a'.repeat(11))).toBeNull();
+  });
+});
+
+describe('looksLikeMangaTarget', () => {
+  it('loads URLs, paths and bare ids', () => {
+    expect(looksLikeMangaTarget('https://atsu.moe/manga/OaKBx')).toBe(true);
+    expect(looksLikeMangaTarget('atsu.moe/manga/OaKBx')).toBe(true);
+    expect(looksLikeMangaTarget('/manga/OaKBx')).toBe(true);
+    expect(looksLikeMangaTarget('OaKBx')).toBe(true);
+    // Hyphenated tokens are only loadable when they are known ids (demo fixtures).
+    expect(looksLikeMangaTarget('demo-123')).toBe(false);
+    expect(looksLikeMangaTarget('demo-lantern', ['demo-lantern'])).toBe(true);
+  });
+
+  it('leaves ordinary words alone so they search the shelf', () => {
+    expect(looksLikeMangaTarget('lantern')).toBe(false);
+    expect(looksLikeMangaTarget('solo leveling')).toBe(false);
+    expect(looksLikeMangaTarget('')).toBe(false);
+  });
+
+  it('knows bundled fixture ids', () => {
+    expect(looksLikeMangaTarget('demo-lantern', ['demo-lantern'])).toBe(true);
   });
 });
 
