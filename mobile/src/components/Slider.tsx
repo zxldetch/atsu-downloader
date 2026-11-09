@@ -32,6 +32,8 @@ const THUMB_WIDTH = 3;
 const THUMB_HEIGHT = 26;
 /** Breathing room between the track edge and the fill/thumb at the extremes. */
 const INSET = 4;
+/** Clear space between the fill and the thumb — the "===== |" look, not "=====|". */
+const GAP = 5;
 
 export function Slider({
   value,
@@ -129,8 +131,8 @@ export function Slider({
   const clamped = Math.min(1, Math.max(0, value));
   /** Left edge of the thumb, from the track's left edge. */
   const thumbX = INSET + clamped * usable(width);
-  /** The fill ends on the thumb's centre line, never past the right inset. */
-  const fillWidth = clamped * usable(width) + THUMB_WIDTH / 2;
+  /** The fill stops short of the thumb, leaving a hairline of empty track. */
+  const fillWidth = Math.max(0, thumbX - INSET - GAP);
 
   return (
     <View style={style}>
@@ -163,7 +165,7 @@ export function Slider({
           <View style={[styles.fill, { left: INSET, width: fillWidth }]} />
           {/* The end dot only makes sense while there is still empty track for it
               to label — at the last page the fill has reached the cap. */}
-          {fillWidth < width - INSET - 36 ? <View style={styles.endDot} /> : null}
+          {fillWidth + GAP < width - INSET - THUMB_WIDTH - 30 ? <View style={styles.endDot} /> : null}
         </View>
         <View pointerEvents="none" style={[styles.thumb, { left: thumbX }]} />
         {dragging && valueLabel ? (
@@ -207,7 +209,8 @@ const styles = makeStyles((colors) => ({
     top: INSET,
     bottom: INSET,
     backgroundColor: colors.accent,
-    borderRadius: radius.pill,
+    // Flat ends, like the reference: a bar, not a pill inside a pill.
+    borderRadius: 3,
   },
   thumb: {
     position: 'absolute',

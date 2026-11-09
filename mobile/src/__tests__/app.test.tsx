@@ -46,6 +46,13 @@ async function openDemoSeries(title = 'The Lantern Courier', subtitle = '12 chap
   await screen.findByText(subtitle, {}, { timeout: 4000 });
 }
 
+/** The chapter list starts in read mode; picking chapters needs download mode. */
+async function chooseDownloadMode() {
+  await act(async () => {
+    fireEvent.press(screen.getByText('Download'));
+  });
+}
+
 beforeEach(async () => {
   storage.__reset();
   // The AsyncStorage mock is module-global: without this, a shelf saved by one
@@ -72,15 +79,17 @@ describe('Atsu Offline app', () => {
     await renderApp();
     await openDemoSeries();
 
-    expect(screen.getByPlaceholderText('Range · 1-10')).toBeTruthy();
     expect(screen.getByText('Chapter 1 · The first delivery')).toBeTruthy();
-    expect(screen.getByText('Select chapters')).toBeTruthy();
+    // Read mode by default: no download tools, no footer bar.
+    expect(screen.getByText('Read')).toBeTruthy();
+    expect(screen.queryByPlaceholderText('Range · 1-10')).toBeNull();
   });
 
   it('selects chapters with a range expression and reflects the count', async () => {
     await renderApp();
     await openDemoSeries();
 
+    await chooseDownloadMode();
     await act(async () => {
       fireEvent.changeText(screen.getByPlaceholderText('Range · 1-10'), '1-3');
     });
@@ -96,6 +105,7 @@ describe('Atsu Offline app', () => {
     await renderApp();
     await openDemoSeries();
 
+    await chooseDownloadMode();
     await act(async () => {
       fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
     });
@@ -119,10 +129,34 @@ describe('Atsu Offline app', () => {
     expect(pages[0]).toContain('demo-lantern-ch-1/0001');
   });
 
+  it('opens a chapter on tap in read mode, and only ticks rows in download mode', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    // Read mode: the row is a way in, not a checkbox.
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 2 · Rain, again'));
+    });
+    await screen.findByText(/Ch\. 2 · 1 \/ \d+/, {}, { timeout: 4000 });
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Back'));
+    });
+
+    // Download mode: same tap selects.
+    await chooseDownloadMode();
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 2 · Rain, again'));
+    });
+    expect(screen.getByText('Download 1')).toBeTruthy();
+    expect(screen.getByText('1 selected')).toBeTruthy();
+  });
+
   it('reads a downloaded chapter with the network switched off', async () => {
     await renderApp();
     await openDemoSeries();
 
+    await chooseDownloadMode();
     await act(async () => {
       fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
     });
@@ -142,8 +176,12 @@ describe('Atsu Offline app', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('The Lantern Courier'));
     });
+    // Back in read mode, the row itself opens the chapter — no play button.
     await act(async () => {
-      fireEvent.press(screen.getByLabelText('Read Chapter 1 · The first delivery'));
+      fireEvent.press(screen.getByText('Read'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
     });
 
     // The reader's footer counts pages inside the chapter it read from storage,
@@ -204,6 +242,7 @@ describe('Atsu Offline app', () => {
     await renderApp();
     await openDemoSeries();
 
+    await chooseDownloadMode();
     await act(async () => {
       fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
     });
@@ -237,6 +276,7 @@ describe('Atsu Offline app', () => {
   it('selects every chapter that is not downloaded yet', async () => {
     await renderApp();
     await openDemoSeries();
+    await chooseDownloadMode();
 
     await act(async () => {
       fireEvent.press(screen.getByText('Missing 12'));

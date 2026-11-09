@@ -291,7 +291,14 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
       .slice(index + 1, index + 3)
       .filter((row): row is Extract<ReaderRow, { kind: 'page' }> => row.kind === 'page')
       .map((row) => row.page.uri);
-    for (const uri of upcoming) void Image.prefetch(uri).catch(() => {});
+    for (const uri of upcoming) {
+      // Prefetching is a nicety: a build without it (tests, web) must not throw.
+      try {
+        void Image.prefetch?.(uri)?.catch?.(() => {});
+      } catch {
+        // ignore
+      }
+    }
   }, [index, rows, source]);
 
   const goTo = useCallback(

@@ -1,16 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 
 import { looksLikeMangaTarget } from '../api/parse';
 import { LibraryRow } from '../components/cards';
 import { Icon, type IconName } from '../components/icons';
 import { Banner, Button, Chip, EmptyState, SectionHeader, TextField } from '../components/ui';
+import { searchCatalog, type CatalogHit } from '../lib/catalog';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import { colors, radius, spacing, type, useThemeName, makeStyles } from '../theme';
 import type { LibraryEntry } from '../types';
 
-/** Up to this many links can be pasted at once. */
+/** Up to this many links (or titles) can be pasted at once. */
 const MAX_BULK = 10;
 
 export function SearchScreen() {
@@ -21,6 +23,13 @@ export function SearchScreen() {
   const [note, setNote] = useState<string | null>(null);
 
   const trimmed = query.trim();
+
+  /** Online results from atsu.moe's own search. */
+  const [hits, setHits] = useState<CatalogHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const searchSeq = useRef(0);
 
   const demoIds = useMemo(
     () => new Set(actions.demoLibrary().map((manga) => manga.id)),
@@ -39,6 +48,45 @@ export function SearchScreen() {
   }, [demoIds, trimmed]);
 
   const results = useMemo(() => filterLibrary(library, trimmed), [library, trimmed]);
+
+  /**
+   * Titles typed as free text are looked up online; links and ids are not (those
+   * go straight to the loader below). Demo mode never touches the network.
+   */
+  const isTitleQuery = targets.length === 0 && !trimmed.includes('\n') && trimmed.length >= 2;
+  const shouldSearch = isTitleQuery && !config.demoMode;
+
+  useEffect(() => {
+    if (!shouldSearch) {
+      setHits([]);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+
+    const seq = searchSeq.current + 1;
+    searchSeq.current = seq;
+    setSearching(true);
+    setSearchError(null);
+
+    const timer = setTimeout(() => {
+      searchCatalog(trimmed, { limit: 24 })
+        .then((found) => {
+          if (searchSeq.current !== seq) return;
+          setHits(found);
+        })
+        .catch((error: unknown) => {
+          if (searchSeq.current !== seq) return;
+          setHits([]);
+          setSearchError(error instanceof Error ? error.message : String(error));
+        })
+        .finally(() => {
+          if (searchSeq.current === seq) setSearching(false);
+        });
+    }, 420);
+
+    return () => clearTimeout(timer);
+  }, [shouldSearch, trimmed]);
 
   const openManga = useCallback((mangaId: string) => nav.push({ name: 'manga', mangaId }), [nav]);
 
@@ -64,8 +112,72 @@ export function SearchScreen() {
     setNote(`Added ${added} series to your shelf.`);
   }, [actions, nav, targets]);
 
+  /** A title in the line list, resolved through search and added to the shelf. */
+  const addByTitle = useCallback(
+    async (title: string) => {
+      const found = await searchCatalog(title, { limit: 1 });
+      if (found.length === 0) return null;
+      return actions.loadManga(found[0].id);
+    },
+    [actions],
+  );
+
+  /** "I have a list of manhwa" — one title per line, no links needed. */
+  const importTitles = useCallback(async () => {
+    const titles = query
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, MAX_BULK);
+
+    if (titles.length === 0) return;
+    setResolving(true);
+    setNote(null);
+    const missing: string[] = [];
+    let added = 0;
+
+    for (const title of titles) {
+      try {
+        const manga = await addByTitle(title);
+        if (manga) added += 1;
+        else missing.push(title);
+      } catch {
+        missing.push(title);
+      }
+    }
+
+    setResolving(false);
+    if (added > 0) setQuery('');
+    setNote(
+      added === 0
+        ? `None of those ${titles.length} titles were found on atsu.moe.`
+        : `Added ${added} of ${titles.length}${missing.length ? ` · not found: ${missing.join(', ')}` : ''}`,
+    );
+  }, [addByTitle, query]);
+
+  const openHit = useCallback(
+    async (hit: CatalogHit) => {
+      const manga = await actions.loadManga(hit.id);
+      if (manga) {
+        setQuery('');
+        nav.push({ name: 'manga', mangaId: manga.id });
+      }
+    },
+    [actions, nav],
+  );
+
+  const titleList = useMemo(
+    () =>
+      query
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, MAX_BULK),
+    [query],
+  );
+
   return (
-    <Screen title="Search" subtitle="Paste a link to add a series to your shelf">
+    <Screen title="Search" subtitle="Find a series by title, or paste its link">
       <FlatList
         data={results}
         keyExtractor={(entry) => entry.mangaId}
@@ -138,15 +250,72 @@ export function SearchScreen() {
               </>
             ) : null}
 
+            {titleList.length > 1 ? (
+              <View style={styles.linkCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.linkTitle}>Add {titleList.length} titles</Text>
+                  <Text style={styles.linkBody} numberOfLines={3}>
+                    {titleList.join('  ·  ')}
+                  </Text>
+                </View>
+                <Button
+                  label="Add all"
+                  variant="primary"
+                  onPress={() => void importTitles()}
+                  loading={resolving}
+                />
+              </View>
+            ) : null}
+
             {trimmed.length > 0 && results.length > 0 ? (
               <SectionHeader title={`${results.length} on your shelf`} />
             ) : null}
 
-            {trimmed.length > 0 && results.length === 0 && targets.length === 0 ? (
+            {shouldSearch ? (
+              <View style={{ marginTop: spacing.md }}>
+                <SectionHeader
+                  title={searching ? 'Searching atsu.moe…' : `${hits.length} on atsu.moe`}
+                />
+                {searchError ? (
+                  <Text style={styles.footnote}>Search failed · {searchError}</Text>
+                ) : null}
+                {!searching && !searchError && hits.length === 0 ? (
+                  <Text style={styles.footnote}>
+                    Nothing on atsu.moe matched “{trimmed}”. Try fewer words.
+                  </Text>
+                ) : null}
+                {hits.map((hit) => (
+                  <Pressable
+                    key={hit.id}
+                    onPress={() => void openHit(hit)}
+                    style={({ pressed }) => [styles.hitRow, pressed && { opacity: 0.7 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${hit.title}`}
+                  >
+                    {hit.cover ? (
+                      <Image source={{ uri: hit.cover }} style={styles.hitCover} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.hitCover, styles.hitCoverEmpty]}>
+                        <Icon name="image-outline" size={16} color={colors.textFaint} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.hitTitle} numberOfLines={2}>
+                        {hit.title}
+                      </Text>
+                      {hit.meta ? <Text style={styles.hitMeta}>{hit.meta}</Text> : null}
+                    </View>
+                    <Icon name="add-circle-outline" size={20} color={colors.accentText} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+
+            {trimmed.length > 0 && results.length === 0 && targets.length === 0 && !shouldSearch ? (
               <EmptyState
                 icon="search-outline"
                 title="Nothing matched"
-                body="Series are added by link: paste an atsu.moe manga URL and it lands on your shelf. The site's browse API isn't public, so there's no remote search here."
+                body="Type a title to search atsu.moe, paste a manga link, or put one title per line to add several at once."
               />
             ) : null}
           </View>
@@ -175,9 +344,26 @@ export function SearchScreen() {
 }
 
 const HELP_STEPS: { icon: IconName; title: string; body: string }[] = [
-  { icon: 'link-outline', title: 'Copy a series link', body: 'atsu.moe/manga/OaKBx — or just the id.' },
-  { icon: 'albums-outline', title: 'Pick your chapters', body: 'Tap rows, or type a range like 1-10 or 1,3,5-7.' },
-  { icon: 'cloud-download-outline', title: 'Download, then read offline', body: 'CBZ by default; pages stay on the phone.' },
+  {
+    icon: 'search',
+    title: 'Type a title',
+    body: 'Results come straight from atsu.moe. Tap one to put it on your shelf.',
+  },
+  {
+    icon: 'list-outline',
+    title: 'Or paste a whole list',
+    body: 'One title per line, hit “Add all” — no links needed. Up to 10 at a time.',
+  },
+  {
+    icon: 'link-outline',
+    title: 'Links still work',
+    body: 'atsu.moe/manga/OaKBx, or just the id, pasted on its own.',
+  },
+  {
+    icon: 'cloud-download-outline',
+    title: 'Download, then read offline',
+    body: 'Pages stay on the phone, so a downloaded chapter reads with no connection.',
+  },
 ];
 
 /** Case-insensitive match over title, author and synopsis. */
@@ -207,6 +393,21 @@ const styles = makeStyles((colors) => ({
   linkTitle: { ...type.body, color: colors.text, fontWeight: '600' },
   linkBody: { ...type.tiny, color: colors.textFaint, marginTop: 3, fontWeight: '500' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  hitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  hitCover: {
+    width: 38,
+    height: 52,
+    borderRadius: radius.sm,
+    backgroundColor: colors.input,
+  },
+  hitCoverEmpty: { alignItems: 'center', justifyContent: 'center' },
+  hitTitle: { ...type.body, color: colors.text, fontWeight: '600', fontSize: 15 },
+  hitMeta: { ...type.tiny, color: colors.textFaint, marginTop: 2 },
   footnote: {
     ...type.tiny,
     color: colors.textFaint,

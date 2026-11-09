@@ -214,57 +214,81 @@ export const LibraryRow = memo(function LibraryRow({
   );
 });
 
-/** A chapter row on the series screen. */
+/**
+ * A chapter row on the series screen.
+ *
+ * Two modes, because the same tap cannot mean "read" and "select" at once — that
+ * was the reason reading felt like a chore: every tap selected the row for
+ * download and you had to aim for the little play button instead.
+ *
+ * - `read`: tap anywhere opens the reader. The square shows whether the chapter
+ *   is already on the device.
+ * - `download`: tap toggles selection, and the square is the checkbox.
+ */
 export const ChapterRow = memo(function ChapterRow({
   chapter,
+  mode,
   selected,
   status,
   saved,
   groupLabel,
-  onToggle,
-  onRead,
+  onPress,
 }: {
   chapter: Chapter;
+  mode: 'read' | 'download';
   selected: boolean;
   status: string | null;
   saved: boolean;
   /** Shown only in the "all groups" view, where numbers repeat. */
   groupLabel?: string | null;
-  onToggle: (chapterId: string) => void;
-  onRead: (chapterId: string) => void;
+  onPress: (chapterId: string) => void;
 }) {
   useThemeName();
+  const checked = mode === 'download' ? selected : saved;
+  const meta = [
+    status ?? (chapter.pageCount > 0 ? `${chapter.pageCount} pages` : null),
+    mode === 'read' && saved ? 'on device' : null,
+    groupLabel,
+  ]
+    .filter(Boolean)
+    .join('  ·  ');
+
   return (
     <Pressable
-      onPress={() => onToggle(chapter.id)}
+      onPress={() => onPress(chapter.id)}
       style={({ pressed }) => [styles.chapterRow, pressed && { backgroundColor: colors.card }]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={chapterLabel(chapter)}
+      accessibilityRole={mode === 'download' ? 'checkbox' : 'button'}
+      accessibilityState={mode === 'download' ? { checked: selected } : undefined}
+      accessibilityLabel={`${chapterLabel(chapter)}${
+        mode === 'read' ? (saved ? ', on device, open' : ', open') : ''
+      }`}
     >
-      <View style={[styles.check, selected && styles.checkOn]}>
-        {selected ? <Icon name="checkmark" size={14} color={colors.onAccent} /> : null}
+      <View
+        style={[
+          styles.check,
+          checked && (mode === 'download' ? styles.checkOn : styles.checkSaved),
+        ]}
+      >
+        {checked ? (
+          <Icon
+            name="checkmark"
+            size={15}
+            color={mode === 'download' ? colors.onAccent : colors.accentText}
+          />
+        ) : null}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.chapterTitle} numberOfLines={1}>
           {chapterLabel(chapter)}
         </Text>
-        <Text style={styles.chapterMeta} numberOfLines={1}>
-          {status ?? `${chapter.pageCount} pages`}
-          {saved ? '  ·  offline' : ''}
-          {groupLabel ? `  ·  ${groupLabel}` : ''}
-        </Text>
+        {meta ? (
+          <Text style={styles.chapterMeta} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
       </View>
-      {saved ? (
-        <Pressable
-          onPress={() => onRead(chapter.id)}
-          hitSlop={10}
-          style={({ pressed }) => [styles.readButton, pressed && { opacity: 0.6 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Read ${chapterLabel(chapter)}`}
-        >
-          <Icon name="play" size={14} color={colors.onAccent} />
-        </Pressable>
+      {mode === 'read' ? (
+        <Icon name="chevron-forward" size={16} color={colors.textFaint} />
       ) : null}
     </Pressable>
   );
@@ -523,30 +547,26 @@ const styles = makeStyles((colors) => ({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 2,
     borderRadius: radius.sm,
-    minHeight: 60,
+    minHeight: 58,
   },
   check: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+    width: 24,
+    height: 24,
+    // A square with rounded corners reads as "checkbox" and is easier to hit
+    // than a circle at this size.
+    borderRadius: 8,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chapterTitle: { ...type.body, color: colors.textDim, fontWeight: '500', fontSize: 15 },
-  chapterMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 3 },
-  readButton: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  /** On-device, in read mode: tinted, not filled — it is a state, not a tick. */
+  checkSaved: { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },
+  chapterTitle: { ...type.body, color: colors.text, fontWeight: '600', fontSize: 15.5 },
+  chapterMeta: { ...type.tiny, color: colors.textDim, fontWeight: '500', marginTop: 3 },
 
   jobRow: {
     flexDirection: 'row',

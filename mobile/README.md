@@ -129,6 +129,30 @@ Accessibility follows the common React Native checklist
 - chips and buttons keep ≥40-44pt targets, and font scaling is left enabled with
   `numberOfLines` guarding layouts.
 
+### Finding series
+
+The search tab talks to atsu.moe's own catalog endpoint —
+`GET /api/search/manga?q=…&query_by=title` — so series can be found by title
+instead of by pasted link (`lib/catalog.ts`, parsed defensively because the
+payload is Typesense-shaped rather than a published contract). Typing one title
+per line and pressing **Add all** resolves up to ten titles in a row, which is the
+"here is my list of manhwa" path; links and bare ids still load directly.
+
+### Chapter list
+
+The list has two modes, because one tap cannot mean two things:
+
+- **Read** (default) — tapping a row opens the reader. The leading square shows
+  whether that chapter is already on the device; there is no separate play button
+  to aim at.
+- **Download** — tapping ticks rows, the range box, quick picks (All, Missing,
+  Unread, Latest 5) and the format chips appear, and the footer downloads the
+  selection.
+
+The square is a rounded-corner checkbox (24 px, radius 8) rather than a circle:
+easier to hit and unmistakably a tick. There is no translucent card around the
+download tools any more — a hairline groups them without boxing the screen in.
+
 ### Reader
 
 - **Infinite mode is one continuous strip.** Chapters are appended to the list

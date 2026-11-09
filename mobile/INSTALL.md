@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 26 · install over the old app, nothing is lost.*
+*Build 28 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -32,6 +32,17 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **Updates keep your data.** Every build is now signed with the same key, so a
   new APK installs *over* the old one — Android says "Update", not "Install" — and
   your shelf, settings and downloaded chapters stay put.
+- **Search atsu.moe from inside the app.** Type a title on the Search tab and the
+  results are the site's own. Have a list? Put one title per line and press
+  **Add all** — no links needed.
+- **Tapping a chapter reads it.** The list now has Read and Download modes: in
+  Read, a tap opens the chapter (the square shows what's already on the device);
+  in Download, a tap ticks it. The round play button is gone.
+- **Calmer layout.** The translucent rectangle around the chapter tools is gone,
+  chapter titles are brighter and larger, and the page bar's fill is a flat bar
+  that stops short of the thumb instead of a pill spilling past the track.
+- **Icon** now sits on a violet rounded-square plate, so it reads as a shape
+  rather than white lines on black.
 - **Downloads now run 1 → N.** They used to start at the newest chapter because
   the API lists chapters newest-first.
 - **Theme switching no longer flickers** (no remount, no blank frame).

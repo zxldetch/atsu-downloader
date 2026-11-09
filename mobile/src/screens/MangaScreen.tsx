@@ -77,6 +77,12 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   const [range, setRange] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [chapterFilter, setChapterFilter] = useState<ChapterFilter>('all');
+  /**
+   * Tapping a row used to always select it for download, so actually reading a
+   * chapter meant aiming at a small play button. The list now has a mode:
+   * read (tap = open) or download (tap = tick).
+   */
+  const [rowMode, setRowMode] = useState<'read' | 'download'>('read');
   const [ascending, setAscending] = useState(true);
   // 'auto' follows the biggest group; anything else is an explicit pick, which
   // is remembered per series so re-opening a manga lands on the same group.
@@ -275,25 +281,27 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
       onBack={nav.back}
       showTabs={false}
       footer={
-        <View style={styles.footerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.footerCount}>
-              {selection.size > 0 ? `${selection.size} selected` : 'Select chapters'}
-            </Text>
-            <Text style={styles.footerHint}>
-              {selection.size > 0
-                ? `${config.downloadFormat.toUpperCase()} · saved on this device`
-                : 'Tap rows, or use a range'}
-            </Text>
+        rowMode === 'download' ? (
+          <View style={styles.footerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.footerCount}>
+                {selection.size > 0 ? `${selection.size} selected` : 'Nothing selected'}
+              </Text>
+              <Text style={styles.footerHint}>
+                {selection.size > 0
+                  ? `${config.downloadFormat.toUpperCase()} · saved on this device`
+                  : 'Tap chapters, or use a range'}
+              </Text>
+            </View>
+            <Button
+              label={selection.size === 0 ? 'Download' : `Download ${selection.size}`}
+              variant="primary"
+              icon="download-outline"
+              disabled={selection.size === 0}
+              onPress={startDownload}
+            />
           </View>
-          <Button
-            label={selection.size === 0 ? 'Download' : `Download ${selection.size}`}
-            variant="primary"
-            icon="download-outline"
-            disabled={selection.size === 0}
-            onPress={startDownload}
-          />
-        </View>
+        ) : undefined
       }
     >
       <FlatList
@@ -400,6 +408,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               </Text>
             ) : null}
 
+            {rowMode === 'download' ? (
             <View style={styles.controlCard}>
               <View style={styles.controlRow}>
                 <TextField
@@ -439,6 +448,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 </View>
               </View>
             </View>
+            ) : null}
 
             {message ? (
               <Banner tone="warning" onDismiss={() => setMessage(null)}>
@@ -493,6 +503,19 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               </Pressable>
             </View>
 
+            <Segmented
+              value={rowMode}
+              onChange={(next) => {
+                setRowMode(next);
+                if (next === 'read') setSelection(new Set());
+              }}
+              options={[
+                { key: 'read', label: 'Read' },
+                { key: 'download', label: 'Download' },
+              ]}
+              style={{ marginTop: spacing.lg }}
+            />
+
             <View style={styles.filterRow}>
               <Segmented
                 value={chapterFilter}
@@ -510,14 +533,14 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
         renderItem={({ item }) => (
           <ChapterRow
             chapter={item}
+            mode={rowMode}
             selected={selection.has(item.id)}
             status={statusByChapter.get(item.id) ?? null}
             saved={Boolean(entry?.chapters?.[item.id])}
             groupLabel={
               groups.length > 1 && activeGroupId === 'all' ? (item.group ?? null) : null
             }
-            onToggle={toggle}
-            onRead={openReader}
+            onPress={rowMode === 'download' ? toggle : openReader}
           />
         )}
         ListEmptyComponent={
@@ -615,12 +638,15 @@ const styles = makeStyles((colors) => ({
     lineHeight: 25,
     marginTop: spacing.xl,
   },
+  // No translucent rectangle around the download tools any more: a hairline and
+  // spacing group them without boxing the screen in.
   controlCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
     gap: spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
   },
   controlRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
