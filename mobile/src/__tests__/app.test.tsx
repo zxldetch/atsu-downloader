@@ -46,8 +46,12 @@ async function openDemoSeries(title = 'The Lantern Courier') {
   await screen.findByText('12 chapters · 0 offline', {}, { timeout: 4000 });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   storage.__reset();
+  // The AsyncStorage mock is module-global: without this, a shelf saved by one
+  // test leaks into the next and the same title shows up twice.
+  const AsyncStorage = require('@react-native-async-storage/async-storage');
+  await AsyncStorage.clear();
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
