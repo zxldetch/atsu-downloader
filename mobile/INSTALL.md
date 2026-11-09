@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 24 · 2026-11-09 · install over the old app, nothing is lost.*
+*Build 25 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -15,9 +15,15 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
   atsu mark.
 - **Reader**: arrows step into the previous/next chapter at the edges, an
   "Infinite mode" switch, auto-scroll with a 1-10 speed slider, and a draggable
-  page bar in atsu's style that follows your finger exactly. Tap the title pill to
-  jump back to the series page. A new Reader settings sheet (bottom panel) holds
-  all of it.
+  page bar in atsu's style that follows your finger exactly. Tap the title to jump
+  back to the series page. A new Reader settings sheet (bottom panel) holds all of
+  it.
+- **Infinite mode reads itself.** The next chapter is appended to the strip you
+  are already scrolling, so there is nothing to press: you reach the bottom and
+  keep going, past a seam that says `Finished: Chapter 12` / `Next: Chapter 13`.
+- **No boxes behind the reader's buttons** any more — the glyphs sit on a plain
+  scrim, and the page bar's fill now stays inside its rounded track instead of
+  spilling past the end.
 - **Downloads now run 1 → N.** They used to start at the newest chapter because
   the API lists chapters newest-first.
 - **Theme switching no longer flickers** (no remount, no blank frame).

@@ -131,15 +131,24 @@ Accessibility follows the common React Native checklist
 
 ### Reader
 
-- **Chapter chaining (Infinite mode).** The arrows move a page, and at the first
-  or last page step into the neighbouring chapter; in the vertical strip reaching
-  the end loads the next chapter automatically. Turning Infinite mode off makes
-  the reader stay inside one chapter.
+- **Infinite mode is one continuous strip.** Chapters are appended to the list
+  you are already scrolling — no navigation, no pressing "next chapter". Where
+  one ends and the next begins the strip shows a seam:
+  `Finished: Chapter 12` / `Next: Chapter 13`. Turning Infinite mode off keeps
+  the reader inside a single chapter. The list logic lives in
+  `src/lib/readerRows.ts` (pure, tested) so the seam ordering and per-chapter page
+  counter can be verified without a renderer.
+- **Navigating by hand.** The arrows move a page and, at the edges, cross into the
+  neighbouring chapter (landing on its first page going forward, its last page
+  going back). The chrome is flat: glyphs straight on a translucent scrim, no
+  boxes, pills or shadows behind the buttons.
 - **Auto-scroll.** Hands-free glide down a strip, speed 1-10 in Settings. A touch
   pauses it for 2.5 s instead of switching it off.
 - **Page scrubber.** atsu's slider, rebuilt: rounded track, violet fill, thin
-  white thumb, dot at the end. Dragging moves the list 1:1 with the thumb (no
-  animation lag) and the pill above it shows `12 / 233` while you drag.
+  white thumb, dot at the end. The fill and the thumb are inset inside the
+  track's caps, so neither ever pokes out past the rounded edge at either end.
+  Dragging moves the list 1:1 with the thumb (no animation lag) and a small chip
+  shows `12 / 233` while you drag.
 - **Settings sheet.** A bottom sheet in their "Graphics" style — uppercase label
   + value, the same slider, iOS switches — for layout, infinite mode, auto-scroll
   and keep-awake, with a reset.

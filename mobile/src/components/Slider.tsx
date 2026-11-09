@@ -6,6 +6,11 @@
  * same widget their Graphics sheet and page scrubber use, so it lives here once
  * and both screens render it.
  *
+ * Geometry: everything is inset by INSET inside the rounded track, and the thumb
+ * travels between the two insets — so the fill and the thumb never poke out past
+ * the track's own edge at either end (the fill starts flush with the left cap and
+ * stops flush with the right one).
+ *
  * Dragging is exact: the thumb tracks the finger, the value snaps to `steps`
  * when given, and VoiceOver/TalkBack can move it with the adjustable action.
  */
@@ -25,6 +30,8 @@ import { makeStyles, radius, type } from '../theme';
 const TRACK_HEIGHT = 40;
 const THUMB_WIDTH = 3;
 const THUMB_HEIGHT = 26;
+/** Breathing room between the track edge and the fill/thumb at the extremes. */
+const INSET = 4;
 
 export function Slider({
   value,
@@ -65,12 +72,18 @@ export function Slider({
     [steps],
   );
 
+  /** Distance the thumb's left edge can travel, inside the insets. */
+  const usable = useCallback(
+    (trackWidth: number) => Math.max(1, trackWidth - INSET * 2 - THUMB_WIDTH),
+    [],
+  );
+
   const ratioFromX = useCallback(
-    (x: number) => {
-      const usable = Math.max(1, widthRef.current - THUMB_WIDTH);
-      return clamp((x - THUMB_WIDTH / 2) / usable);
-    },
-    [clamp],
+    (x: number) =>
+      // x is relative to the track's left edge; the thumb's centre is what the
+      // finger sits on, so measure from the centre of the thumb.
+      clamp((x - INSET - THUMB_WIDTH / 2) / usable(widthRef.current)),
+    [clamp, usable],
   );
 
   const pageOriginRef = useRef(0);
@@ -101,7 +114,7 @@ export function Slider({
           onSlideEnd?.();
         },
       }),
-    [clamp, disabled, onChange, onSlideEnd, onSlideStart, ratioFromX],
+    [disabled, onChange, onSlideEnd, onSlideStart, ratioFromX],
   );
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -114,7 +127,10 @@ export function Slider({
   };
 
   const clamped = Math.min(1, Math.max(0, value));
-  const thumbX = clamped * Math.max(0, width - THUMB_WIDTH);
+  /** Left edge of the thumb, from the track's left edge. */
+  const thumbX = INSET + clamped * usable(width);
+  /** The fill ends on the thumb's centre line, never past the right inset. */
+  const fillWidth = clamped * usable(width) + THUMB_WIDTH / 2;
 
   return (
     <View style={style}>
@@ -128,7 +144,7 @@ export function Slider({
       <View
         ref={trackRef}
         onLayout={onLayout}
-        style={[styles.track, dragging && styles.trackActive, disabled && { opacity: 0.5 }]}
+        style={[styles.wrap, disabled && { opacity: 0.5 }]}
         accessibilityRole="adjustable"
         accessibilityLabel={label ?? 'Slider'}
         accessibilityValue={valueLabel ? { text: valueLabel } : undefined}
@@ -141,11 +157,17 @@ export function Slider({
         }}
         {...responder.panHandlers}
       >
-        <View style={[styles.fill, { width: `${clamped * 100}%` }]} />
-        <View style={[styles.thumb, { left: thumbX }]} />
-        <View style={styles.endDot} />
+        {/* The rounded track clips its own contents, so the fill can never show a
+            square corner outside the pill. */}
+        <View style={[styles.track, dragging && styles.trackActive]}>
+          <View style={[styles.fill, { left: INSET, width: fillWidth }]} />
+          {/* The end dot only makes sense while there is still empty track for it
+              to label — at the last page the fill has reached the cap. */}
+          {fillWidth < width - INSET - 36 ? <View style={styles.endDot} /> : null}
+        </View>
+        <View pointerEvents="none" style={[styles.thumb, { left: thumbX }]} />
         {dragging && valueLabel ? (
-          <View style={styles.bubble} pointerEvents="none">
+          <View pointerEvents="none" style={[styles.bubble, { left: thumbX - 34 }]}>
             <Text style={styles.bubbleText}>{valueLabel}</Text>
           </View>
         ) : null}
@@ -168,19 +190,22 @@ const styles = makeStyles((colors) => ({
   label: { ...type.small, color: colors.textDim, fontWeight: '700', letterSpacing: 0.8 },
   labelValue: { ...type.small, color: colors.textDim, fontWeight: '500' },
 
+  wrap: { height: TRACK_HEIGHT, justifyContent: 'center' },
   track: {
-    height: TRACK_HEIGHT,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     borderRadius: radius.pill,
     backgroundColor: colors.card,
-    justifyContent: 'center',
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   trackActive: { backgroundColor: colors.input },
   fill: {
     position: 'absolute',
-    left: 4,
-    top: 4,
-    bottom: 4,
+    top: INSET,
+    bottom: INSET,
     backgroundColor: colors.accent,
     borderRadius: radius.pill,
   },
@@ -194,7 +219,8 @@ const styles = makeStyles((colors) => ({
   },
   endDot: {
     position: 'absolute',
-    right: 12,
+    right: 14,
+    top: TRACK_HEIGHT / 2 - 2,
     width: 4,
     height: 4,
     borderRadius: 2,
@@ -202,12 +228,12 @@ const styles = makeStyles((colors) => ({
   },
   bubble: {
     position: 'absolute',
-    top: -34,
-    alignSelf: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    top: -30,
+    width: 68,
+    alignItems: 'center',
+    paddingVertical: 4,
     borderRadius: radius.sm,
-    backgroundColor: colors.input,
+    backgroundColor: colors.inputStrong,
   },
   bubbleText: { ...type.tiny, color: colors.text },
 
