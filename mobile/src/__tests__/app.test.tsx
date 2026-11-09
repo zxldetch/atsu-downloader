@@ -92,7 +92,7 @@ describe('Atsu Offline app', () => {
     expect(screen.getAllByText('3 selected').length).toBeGreaterThan(0);
   });
 
-  it('downloads a chapter, packages a CBZ and shows it in the shelf queue', async () => {
+  it('downloads a chapter as page files and shows it in the shelf queue', async () => {
     await renderApp();
     await openDemoSeries();
 
@@ -111,10 +111,48 @@ describe('Atsu Offline app', () => {
       { timeout: 8000 },
     );
 
-    const archive = [...storage.__state.files.keys()].find((path: string) =>
-      path.endsWith('.cbz'),
+    // The default format is page images, which is what the reader paints offline.
+    const pages = [...storage.__state.files.keys()].filter((path: string) =>
+      /\.(webp|jpe?g|png)$/i.test(path),
     );
-    expect(archive).toContain('The Lantern Courier - ch 1.cbz');
+    expect(pages.length).toBeGreaterThan(0);
+    expect(pages[0]).toContain('demo-lantern-ch-1/0001');
+  });
+
+  it('reads a downloaded chapter with the network switched off', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Download 1'));
+    });
+    await waitFor(() => expect(screen.getAllByText('Saved').length).toBeGreaterThan(0), {
+      timeout: 8000,
+    });
+
+    // From here on nothing may reach the network — the pages must come off disk.
+    const offline = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('no network'));
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Home'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('The Lantern Courier'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Read Chapter 1 · The first delivery'));
+    });
+
+    // The reader's footer counts pages inside the chapter it read from storage,
+    // and the chrome says the source is offline.
+    await screen.findByText('Ch. 1 · 1 / 6', {}, { timeout: 4000 });
+    expect(screen.getByText('Chapter 1 · offline')).toBeTruthy();
+    expect(screen.queryByText(/not on the device yet/)).toBeNull();
+
+    offline.mockRestore();
   });
 
   it('keeps everything on the shelf tab after loading a series', async () => {

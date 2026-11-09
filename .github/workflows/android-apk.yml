@@ -79,6 +79,46 @@ jobs:
       - name: Generate the native Android project
         run: npx expo prebuild -p android --no-install
 
+      - name: Sign with the app's own keystore
+        # Every APK has to carry the *same* signing certificate, or Android refuses
+        # to install a new build over the old one and the library on the device is
+        # lost with it. The generated project defaults to the runner's throwaway
+        # debug key, which is different on every machine — so point the release
+        # build at the key committed in mobile/keys instead.
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+
+          path = pathlib.Path("android/app/build.gradle")
+          gradle = path.read_text()
+          if "signingConfigs.release" in gradle:
+              print("release signing already configured")
+              raise SystemExit(0)
+
+          config = '''
+              release {
+                  storeFile file('../../keys/atsu-offline.keystore')
+                  storePassword 'atsuoffline'
+                  keyAlias 'atsu'
+                  keyPassword 'atsuoffline'
+              }'''
+          gradle = gradle.replace("signingConfigs {", "signingConfigs {" + config, 1)
+
+          # Inside buildTypes the debug block comes first, so target the release
+          # block rather than "the first debug signingConfig you find".
+          match = re.search(r"buildTypes\s*\{[\s\S]*?release\s*\{", gradle)
+          if not match:
+              raise SystemExit("could not find the release build type in build.gradle")
+          cut = match.end()
+          gradle = gradle[:cut] + gradle[cut:].replace(
+              "signingConfig signingConfigs.debug",
+              "signingConfig signingConfigs.release",
+              1,
+          )
+          path.write_text(gradle)
+          print("release signing configured from mobile/keys/atsu-offline.keystore")
+          PY
+
       - name: Install the NDK version React Native asks for
         # The runner image already ships an Android SDK, but not always the exact NDK
         # that react-native pins. Read it out of the generated project instead of
@@ -148,6 +188,23 @@ jobs:
           name: gradle-log
           path: ${{ runner.temp }}/gradle.log
           if-no-files-found: ignore
+
+      - name: Verify the APK signature
+        # Printed so the signing certificate can be checked against the previous
+        # build: same fingerprint means updates install over each other and keep
+        # the library on the device.
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          APKSIGNER=$(ls -d "$SDK"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/release/*.apk \
+            | tee "$RUNNER_TEMP/certs.txt"
+          # The committed key's certificate. If this ever differs, an update would
+          # be refused by Android (and take the user's library with it), so fail
+          # the build instead of publishing an incompatible APK.
+          EXPECTED=6b9813b858f09458e4dd7ed5d9668243da530a2dc60bfef31890a2225bd1ddb6
+          grep -qi "$EXPECTED" "$RUNNER_TEMP/certs.txt" \
+            || { echo "::error::APK is not signed with the app's stable key"; exit 1; }
 
       - name: Collect the APK
         run: |

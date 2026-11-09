@@ -55,6 +55,36 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   const manga = mangaCache[mangaId] ?? actions.getManga(mangaId);
   const chapter = manga?.chapters.find((entry) => entry.id === chapterId);
   const entry = library.find((item) => item.mangaId === mangaId);
+  /** What the library remembers about this chapter, offline or not. */
+  const stored = entry?.chapters?.[chapterId];
+
+  /**
+   * Enough to open the chapter. The series metadata comes from the network, but a
+   * downloaded chapter carries its own number, title and page count in the
+   * library — so a cold start in aeroplane mode still lands on the pages instead
+   * of an error saying the chapter is gone.
+   */
+  const meta = useMemo(
+    () =>
+      chapter
+        ? {
+            id: chapter.id,
+            title: chapter.title,
+            number: chapter.number,
+            index: chapter.index,
+            pageCount: chapter.pageCount,
+          }
+        : stored
+          ? {
+              id: chapterId,
+              title: stored.chapterTitle,
+              number: stored.chapterNumber,
+              index: 0,
+              pageCount: stored.pageCount,
+            }
+          : null,
+    [chapter, chapterId, stored],
+  );
 
   const [segments, setSegments] = useState<ReaderSegment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,31 +113,49 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   segmentsRef.current = segments;
 
   const loadSegment = useCallback(
-    async (meta: {
-      id: string;
-      title: string;
-      number: number;
-      index: number;
-      pageCount: number;
-    }): Promise<{ pages: ReaderPage[]; source: 'offline' | 'network' }> => {
-      const files = await storage.listDir(storage.chapterDir(mangaId, meta.id));
+    async (
+      target: { id: string; title: string; number: number; index: number; pageCount: number },
+      options: { allowNetwork?: boolean } = {},
+    ): Promise<{ pages: ReaderPage[]; source: 'offline' | 'network' }> => {
+      const dir = storage.chapterDir(mangaId, target.id);
 
-      if (files.length > 0) {
+      const readLocal = async (): Promise<ReaderPage[]> => {
+        const files = await storage.listDir(dir);
         const pages: ReaderPage[] = [];
         for (const file of files) {
+          // Only real images count: an archive sitting in the same folder used to
+          // be handed to <Image> as if it were a page.
+          if (!/\.(webp|jpe?g|png|gif|avif)$/i.test(file.path)) continue;
           pages.push({ key: file.path, uri: await storage.uriFor(file.path), aspect: 0.7 });
         }
-        return { pages, source: 'offline' };
+        return pages;
+      };
+
+      let local = await readLocal();
+
+      // Archive-only download (anything saved by a build before pages were kept):
+      // unpack it once, then it behaves like any other offline chapter.
+      if (local.length === 0) {
+        const savedPath = entry?.chapters?.[target.id]?.savedPath;
+        if (savedPath && /\.(cbz|zip)$/i.test(savedPath) && (await storage.exists(savedPath))) {
+          try {
+            await storage.extractArchive(savedPath, dir);
+            local = await readLocal();
+          } catch {
+            // A corrupt archive is not fatal — fall through to the network path.
+          }
+        }
       }
 
-      if (!manga) throw new Error('This series is not loaded.');
+      if (local.length > 0) return { pages: local, source: 'offline' };
+      if (options.allowNetwork === false || !manga) throw new Error('offline');
 
       const remote = await actions.chapterPages(manga, {
-        id: meta.id,
-        title: meta.title,
-        number: meta.number,
-        index: meta.index,
-        pageCount: meta.pageCount,
+        id: target.id,
+        title: target.title,
+        number: target.number,
+        index: target.index,
+        pageCount: target.pageCount,
         scanlationMangaId: '',
       });
 
@@ -122,15 +170,27 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mangaId, manga?.id],
+    [entry?.chapters, mangaId, manga?.id],
   );
 
   /** Reading order, not API order: atsu lists newest first, which would send
    *  "next chapter" backwards. */
-  const orderedChapters = useMemo(
-    () => [...(manga?.chapters ?? [])].sort((a, b) => a.number - b.number || a.index - b.index),
-    [manga?.chapters],
-  );
+  const orderedChapters = useMemo(() => {
+    const online = manga?.chapters ?? [];
+    const list = online.length
+      ? online
+      : // Offline with no series metadata: walk the chapters that are actually on
+        // the device, so "next chapter" still works through a downloaded run.
+        Object.values(entry?.chapters ?? {}).map((saved) => ({
+          id: saved.chapterId,
+          title: saved.chapterTitle,
+          number: saved.chapterNumber,
+          index: 0,
+          pageCount: saved.pageCount,
+          scanlationMangaId: '',
+        }));
+    return [...list].sort((a, b) => a.number - b.number || a.index - b.index);
+  }, [entry?.chapters, manga?.chapters]);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,28 +198,22 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     setError(null);
 
     (async () => {
-      if (!manga || !chapter) {
-        setError('This chapter is no longer in the series list.');
+      if (!meta) {
+        setError('This chapter is not downloaded, and the series could not be loaded.');
         setLoading(false);
         return;
       }
 
       try {
-        const loaded = await loadSegment({
-          id: chapter.id,
-          title: chapter.title,
-          number: chapter.number,
-          index: chapter.index,
-          pageCount: chapter.pageCount,
-        });
+        const loaded = await loadSegment(meta);
         if (cancelled) return;
         if (loaded.pages.length === 0) throw new Error('This chapter has no pages.');
 
         setSegments([
           {
-            chapterId: chapter.id,
-            number: chapter.number,
-            label: chapterLabel(chapter),
+            chapterId: meta.id,
+            number: meta.number,
+            label: chapterLabel(meta),
             pages: loaded.pages,
           },
         ]);
@@ -172,7 +226,12 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
         setLoading(false);
       } catch (loadError) {
         if (cancelled) return;
-        setError(loadError instanceof Error ? loadError.message : String(loadError));
+        const message = loadError instanceof Error ? loadError.message : String(loadError);
+        setError(
+          message === 'offline'
+            ? 'This chapter is not on the device yet. Connect once and download it, then it reads offline for good.'
+            : message,
+        );
         setLoading(false);
       }
     })();
@@ -181,7 +240,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt, chapterId, mangaId]);
+  }, [attempt, chapterId, mangaId, meta?.id]);
 
   /** Everything in the strip, seams included. */
   const rows = useMemo(() => buildRows(segments), [segments]);
@@ -381,7 +440,11 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     if (upcoming) openChapter(upcoming.id);
   }, [appendNext, goTo, index, infinite, openChapter, rows.length, upcoming]);
 
-  const headerTitle = useMemo(() => (chapter ? chapterLabel(chapter) : 'Reading'), [chapter]);
+  const mangaTitle = manga?.title ?? entry?.title ?? null;
+  const headerTitle = useMemo(
+    () => (meta ? chapterLabel(meta) : 'Reading'),
+    [meta?.id, meta?.number, meta?.title],
+  );
   const activeLabel =
     current?.kind === 'page'
       ? `Chapter ${formatChapterNumber(current.chapterNumber)}`
@@ -529,13 +592,22 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
             {/* atsu floats the title between the chrome buttons, and tapping it
                 goes up to the series page. No pill behind it — just the text. */}
             <Pressable
-              onPress={() => nav.push({ name: 'manga', mangaId })}
+              onPress={() => {
+                // Offline, only the downloaded chapters exist — there is no series
+                // page to open, so stay put instead of navigating to an error.
+                if (manga) nav.push({ name: 'manga', mangaId });
+              }}
+              disabled={!manga}
               accessibilityRole="button"
-              accessibilityLabel={`${manga?.title ?? headerTitle}, open series page`}
+              accessibilityLabel={
+                manga
+                  ? `${manga.title}, open series page`
+                  : `${mangaTitle ?? headerTitle}, downloaded copy`
+              }
               style={styles.titleWrap}
             >
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {manga?.title ?? headerTitle}
+                {mangaTitle ?? headerTitle}
               </Text>
               <Text style={styles.headerMeta} numberOfLines={1}>
                 {activeLabel} · {source === 'offline' ? 'offline' : 'streaming'}

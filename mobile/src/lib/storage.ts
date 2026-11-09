@@ -15,6 +15,7 @@
 import { Platform } from 'react-native';
 
 import { sanitizeFilename } from '../api/parse';
+import { extensionOf, readArchivePages } from './cbz';
 
 const isWeb = Platform.OS === 'web';
 
@@ -278,6 +279,25 @@ export async function downloadToFile(
     signal: options.signal,
   });
   return file.size ?? 0;
+}
+
+/**
+ * Unpack a CBZ into a chapter folder, replacing whatever was there.
+ *
+ * Downloads made before pages were kept are archive-only; opening one extracts
+ * it once, after which the reader takes the ordinary "pages on disk" path.
+ * Returns the number of pages written.
+ */
+export async function extractArchive(archivePath: string, dir: string): Promise<number> {
+  const pages = await readArchivePages(await readBytes(archivePath));
+  if (pages.length === 0) throw new Error('That archive has no images in it');
+
+  await removeDir(dir);
+  for (let index = 0; index < pages.length; index += 1) {
+    const page = pages[index];
+    await writeFile(`${dir}/${String(index + 1).padStart(4, '0')}${extensionOf(page.name)}`, page.bytes);
+  }
+  return pages.length;
 }
 
 /** A URI usable by <Image source={{ uri }} />. */

@@ -235,14 +235,11 @@ export function SettingsScreen() {
               />
             ))}
           </View>
-          <Text style={styles.rowHint}>Override per series on its page.</Text>
-          <Divider style={{ marginVertical: spacing.sm }} />
-          <Toggle
-            label="Keep page images"
-            hint="Archives are built from the pages. Off deletes the images after packing, which saves space."
-            value={config.keepImages}
-            onChange={(keepImages) => actions.updateConfig({ keepImages })}
-          />
+          <Text style={styles.rowHint}>
+            Pages are always kept on the device, so every download reads offline. CBZ and PDF
+            also write an archive next to them for sharing.{' '}
+            {config.downloadFormat === 'images' ? '' : 'That doubles the space a chapter takes.'}
+          </Text>
         </View>
 
         <View style={[styles.card, { marginTop: spacing.md }]}>
@@ -378,8 +375,13 @@ export function SettingsScreen() {
             in TypeScript so they run on the phone itself.
           </Text>
           <Text style={[styles.aboutText, { marginTop: spacing.sm }]}>
-            Pages come from atsu.moe and its CDN; nothing is uploaded anywhere. Your shelf, queue
-            and settings live in this app's storage.
+            Pages come from atsu.moe and its CDN; nothing is uploaded anywhere. Your shelf, queue,
+            downloads and settings live in this app's own storage.
+          </Text>
+          <Text style={[styles.aboutText, { marginTop: spacing.sm }]}>
+            Every build is signed with the same key, so installing a newer APK over this one —{' '}
+            <Text style={{ fontWeight: '700' }}>never uninstall first</Text> — keeps your library and
+            your downloaded chapters.
           </Text>
           <Text style={[styles.aboutText, { marginTop: spacing.sm, color: colors.warning }]}>
             Download only what you have the right to keep. This app ships with demo fixtures so you

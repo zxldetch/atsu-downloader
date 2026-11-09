@@ -445,7 +445,6 @@ export class DownloadQueue {
   /** Convert the downloaded pages into the requested format. */
   private async finalize(runtime: Runtime, pages: Page[]): Promise<string> {
     const { job } = runtime;
-    const config = this.config();
     const dir = storage.chapterDir(job.mangaId, job.chapterId);
 
     if (job.format === 'images') {
@@ -508,10 +507,9 @@ export class DownloadQueue {
       await storage.writeFile(output, archive);
     }
 
-    if (!config.keepImages) {
-      await storage.removeDir(dir);
-    }
-
+    // The page files stay on disk: they are what the reader shows when you are
+    // offline. The old default deleted them to save space and kept only the
+    // archive — which is why downloads could not be read without a connection.
     return output;
   }
 }

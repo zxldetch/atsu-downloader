@@ -154,7 +154,28 @@ Accessibility follows the common React Native checklist
   and keep-awake, with a reset.
 - Tapping the title pill in the chrome opens the series page.
 
+### Offline
+
+Downloads keep their **page images** on the device — the archive (CBZ/PDF) is an
+extra export, not a replacement. That is what the reader paints when there is no
+connection, so `downloadFormat` no longer decides whether a chapter can be read
+offline. Chapters saved by older builds, which kept only the archive, are unpacked
+into the chapter folder the first time they are opened (`lib/cbz.ts`, with
+`storage.extractArchive`).
+
+The reader also no longer needs the series metadata to open a chapter: a download
+records its own number, title and page count in the library, so a cold start with
+no network opens the pages instead of "series not available". While offline,
+series pages fall back to the downloaded chapters (`MangaScreen`'s
+`offlineManga`), and "next chapter" walks the chapters that are actually on disk.
+
 ### Updates
+
+Every build is signed with the committed key in `mobile/keys/atsu-offline.keystore`
+(personal-use debug-grade key, password in `.github/workflows/android-apk.yml`), so
+a newer APK installs **over** the old one and keeps the user's data. CI verifies
+the certificate fingerprint after building and fails rather than publish an APK
+signed with anything else.
 
 A sideloaded APK gets no store updates, so the app checks for itself: CI stamps
 each build with its run number as `versionCode` and publishes `version.json`

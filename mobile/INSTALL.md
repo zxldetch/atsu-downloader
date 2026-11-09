@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 25 · install over the old app, nothing is lost.*
+*Build 26 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -24,6 +24,14 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **No boxes behind the reader's buttons** any more — the glyphs sit on a plain
   scrim, and the page bar's fill now stays inside its rounded track instead of
   spilling past the end.
+- **Offline actually works now.** The old build packed each chapter into a CBZ
+  and then deleted the page files to save space, so the reader had nothing to
+  show without a connection. Downloads now keep their pages, chapters you already
+  have are unpacked from their CBZ the first time you open them, and the reader no
+  longer needs the series metadata (or the network) to open a downloaded chapter.
+- **Updates keep your data.** Every build is now signed with the same key, so a
+  new APK installs *over* the old one — Android says "Update", not "Install" — and
+  your shelf, settings and downloaded chapters stay put.
 - **Downloads now run 1 → N.** They used to start at the newest chapter because
   the API lists chapters newest-first.
 - **Theme switching no longer flickers** (no remount, no blank frame).
@@ -32,6 +40,20 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
   button. Android will ask you to confirm the install — no silent self-updating,
   that is not allowed for sideloaded apps. From this build on you will be told,
   instead of having to remember the release page.
+
+## Will I lose anything when I install a new build?
+
+No — as long as you **install over the top and never uninstall first**. The app
+package (`moe.atsu.mobile`) is unchanged, every build is signed with the same
+committed key (`mobile/keys/atsu-offline.keystore`), and the build number always
+goes up. Android treats that as an update: your shelf, reading progress, settings
+and downloaded chapters all survive.
+
+One caveat, once: builds **before this one** were signed with a throwaway key that
+changed on every CI run, so Android may refuse this build with *"App not
+installed"* or a signature error. If that happens, uninstall the old app once and
+install this APK fresh — **that deletes the downloads currently on the phone**.
+After this build you will never have to do it again.
 
 ## 1. Download the APK
 

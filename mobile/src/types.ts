@@ -142,8 +142,8 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  downloadFormat: 'cbz',
-  keepImages: false,
+  downloadFormat: 'images',
+  keepImages: true,
   // A 100-chapter binge is the normal case, not the exception: the old 2/4
   // defaults turned one into an overnight job. 4 chapters x 8 images keeps a
   // mid-range phone saturated without starving the reader.

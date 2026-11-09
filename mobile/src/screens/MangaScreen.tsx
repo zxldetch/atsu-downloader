@@ -10,7 +10,7 @@ import { Banner, Button, Chip, EmptyState, Segmented, TextField } from '../compo
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import { colors, coverAspect, radius, spacing, type, useThemeName, makeStyles } from '../theme';
-import type { Chapter, DownloadJob, OutputFormat } from '../types';
+import type { Chapter, DownloadJob, MangaInfo, OutputFormat } from '../types';
 
 type ChapterFilter = 'all' | 'saved' | 'missing' | 'queued';
 
@@ -34,8 +34,44 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   const { mangaCache, library, jobs, config, loadingManga, actions } = useApp();
   const nav = useNav();
 
-  const manga = mangaCache[mangaId] ?? actions.getManga(mangaId);
+  const onlineManga = mangaCache[mangaId] ?? actions.getManga(mangaId);
   const entry = library.find((item) => item.mangaId === mangaId);
+
+  /**
+   * A series you downloaded is still a series without a connection. When the
+   * network fetch fails we rebuild enough of it from the library — title, cover,
+   * and the chapters sitting on disk — so the library tab can be browsed and read
+   * in aeroplane mode instead of dead-ending on "Series not available".
+   */
+  const offlineManga = useMemo<MangaInfo | null>(() => {
+    if (!entry) return null;
+    const saved = Object.values(entry.chapters);
+    if (saved.length === 0) return null;
+    return {
+      id: entry.mangaId,
+      title: entry.title,
+      mangaType: 'Downloaded',
+      synopsis: entry.synopsis,
+      coverUrl: entry.coverUrl,
+      genres: [],
+      authors: entry.authors,
+      status: '',
+      scanlators: [],
+      groups: [],
+      chapters: saved
+        .sort((a, b) => a.chapterNumber - b.chapterNumber)
+        .map((chapter) => ({
+          id: chapter.chapterId,
+          title: chapter.chapterTitle,
+          number: chapter.chapterNumber,
+          index: 0,
+          pageCount: chapter.pageCount,
+          scanlationMangaId: '',
+        })),
+    };
+  }, [entry]);
+
+  const manga = onlineManga ?? offlineManga;
 
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [range, setRange] = useState('');
