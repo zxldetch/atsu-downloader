@@ -3,7 +3,7 @@ import { FlatList, StyleSheet, Text, View, useWindowDimensions } from 'react-nat
 
 import { formatEta, formatSpeed } from '../api/parse';
 import { JobRow, SeriesCard } from '../components/cards';
-import { Banner, Button, Chip, EmptyState, Segmented } from '../components/ui';
+import { Banner, Button, EmptyState, Segmented } from '../components/ui';
 import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
 import { Screen, useNav } from '../navigation';
@@ -106,7 +106,7 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
 
   return (
     <Screen
-      title="Shelf"
+      title="Your Bookmarks"
       subtitle={
         segment === 'library'
           ? `${library.length} series · ${library.reduce(
@@ -163,15 +163,15 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
           ListHeaderComponent={
             library.length > 0 ? (
               <View style={styles.filterRow}>
-                {(
-                  [
-                    ['all', 'All'],
-                    ['reading', 'Reading'],
-                    ['offline', 'Offline'],
-                  ] as [Filter, string][]
-                ).map(([key, label]) => (
-                  <Chip key={key} label={label} active={filter === key} onPress={() => setFilter(key)} />
-                ))}
+                <Segmented<Filter>
+                  options={[
+                    { key: 'all', label: `All ${library.length}` },
+                    { key: 'reading', label: 'Reading' },
+                    { key: 'offline', label: 'Offline' },
+                  ]}
+                  value={filter}
+                  onChange={setFilter}
+                />
               </View>
             ) : undefined
           }
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   segmentWrap: { paddingHorizontal: GUTTER, paddingBottom: spacing.md },
   content: { paddingHorizontal: GUTTER, paddingBottom: spacing.xxxl },
   column: { gap: GAP, justifyContent: 'space-between' },
-  filterRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.md },
+  filterRow: { paddingVertical: spacing.md },
   hint: {
     ...type.tiny,
     color: colors.textFaint,

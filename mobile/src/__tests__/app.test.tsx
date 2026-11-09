@@ -131,7 +131,7 @@ describe('Atsu Mobile app', () => {
     await screen.findByText('Library');
 
     expect(screen.getAllByText('The Lantern Courier').length).toBeGreaterThan(0);
-    expect(screen.getByText('All')).toBeTruthy();
+    expect(screen.getByText('All 1')).toBeTruthy();
     expect(screen.getByText('Offline')).toBeTruthy();
   });
 
@@ -186,10 +186,10 @@ describe('Atsu Mobile app', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('The Lantern Courier'));
     });
-    await screen.findByText('Offline 1');
+    await screen.findByText('Read 1');
 
     await act(async () => {
-      fireEvent.press(screen.getByText('Offline 1'));
+      fireEvent.press(screen.getByText('Read 1'));
     });
 
     expect(screen.getByText('1 of 12 chapters shown · numbered as atsu.moe lists them')).toBeTruthy();

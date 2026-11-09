@@ -7,11 +7,11 @@
     "icon": "./assets/icon.png",
     "scheme": "atsumobile",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#1D1F20",
+    "backgroundColor": "#0D0E12",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1D1F20"
+      "backgroundColor": "#0D0E12"
     },
     "ios": {
       "supportsTablet": true,
@@ -23,7 +23,7 @@
     "android": {
       "package": "moe.atsu.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#1D1F20",
+        "backgroundColor": "#0D0E12",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

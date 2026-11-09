@@ -283,15 +283,22 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
       {chrome ? (
         <>
           <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-            <Pressable onPress={nav.back} hitSlop={12} style={styles.headerButton}>
-              <Icon name="chevron-back" size={20} color={colors.text} />
+            <Pressable
+              onPress={nav.back}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              style={styles.headerButton}
+            >
+              <Icon name="arrow-back" size={20} color={colors.text} />
             </Pressable>
-            <View style={{ flex: 1 }}>
+            {/* atsu floats a rounded title pill between the chrome buttons. */}
+            <View style={styles.titlePill}>
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {headerTitle}
+                {manga?.title ?? headerTitle}
               </Text>
               <Text style={styles.headerMeta} numberOfLines={1}>
-                {manga?.title} · {source === 'offline' ? 'offline' : 'streaming'}
+                {headerTitle} · {source === 'offline' ? 'offline' : 'streaming'}
               </Text>
             </View>
             <Pressable
@@ -311,29 +318,34 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
             </Pressable>
           </View>
 
-          <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-            <View style={styles.progressRow}>
-              <Text style={styles.pageLabel}>
-                {index + 1} / {pages.length}
-              </Text>
-              <View style={{ flex: 1 }}>
-                <ProgressBar value={index + 1} total={Math.max(1, pages.length)} height={3} />
-              </View>
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+            <ProgressBar
+              value={index + 1}
+              total={Math.max(1, pages.length)}
+              height={6}
+              color={colors.accentText}
+            />
+            <View style={styles.footerRow}>
               <Pressable
                 onPress={() => goTo(index - 1)}
                 hitSlop={10}
                 disabled={index === 0}
                 accessibilityLabel="Previous page"
-                style={{ opacity: index === 0 ? 0.35 : 1 }}
+                style={[styles.headerButton, index === 0 && { opacity: 0.35 }]}
               >
                 <Icon name="chevron-back" size={20} color={colors.text} />
               </Pressable>
+              <View style={styles.pagePill}>
+                <Text style={styles.pageLabel}>
+                  {index + 1} / {pages.length}
+                </Text>
+              </View>
               <Pressable
                 onPress={() => goTo(index + 1)}
                 hitSlop={10}
                 disabled={index >= pages.length - 1}
                 accessibilityLabel="Next page"
-                style={{ opacity: index >= pages.length - 1 ? 0.35 : 1 }}
+                style={[styles.headerButton, index >= pages.length - 1 && { opacity: 0.35 }]}
               >
                 <Icon name="chevron-forward" size={20} color={colors.text} />
               </Pressable>
@@ -367,16 +379,33 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     backgroundColor: 'rgba(0,0,0,0.82)',
   },
+  // The app's reader chrome: dark squares with white glyphs, no circles.
   headerButton: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.pill,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(25,26,30,0.94)',
   },
-  headerTitle: { ...type.subtitle, color: colors.text, fontSize: 14 },
-  headerMeta: { ...type.tiny, color: colors.textDim, fontWeight: '500', marginTop: 1 },
+  titlePill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    backgroundColor: 'rgba(13,14,18,0.94)',
+  },
+  headerTitle: { ...type.subtitle, color: colors.text, fontSize: 15, textAlign: 'center' },
+  headerMeta: {
+    ...type.tiny,
+    color: colors.textDim,
+    fontWeight: '500',
+    fontSize: 10,
+    marginTop: 1,
+    textAlign: 'center',
+  },
   footer: {
     position: 'absolute',
     bottom: 0,
@@ -386,12 +415,25 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     backgroundColor: 'rgba(0,0,0,0.82)',
   },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+  },
+  pagePill: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: 'rgba(25,26,30,0.94)',
+  },
   pageLabel: {
-    ...type.tiny,
+    ...type.small,
     color: colors.text,
+    fontWeight: '600',
+    fontSize: 14,
     fontVariant: ['tabular-nums'],
-    minWidth: 52,
   },
   endCard: {
     alignItems: 'center',

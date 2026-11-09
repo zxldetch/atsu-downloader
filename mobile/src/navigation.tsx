@@ -135,11 +135,13 @@ export function TabBar() {
             accessibilityState={{ selected: active }}
             style={({ pressed }) => [styles.tab, pressed && { opacity: 0.6 }]}
           >
-            <Icon
-              name={active ? tab.iconActive : tab.icon}
-              size={24}
-              color={active ? colors.text : colors.textFaint}
-            />
+            <View style={[styles.tabPill, active && styles.tabPillOn]}>
+              <Icon
+                name={active ? tab.iconActive : tab.icon}
+                size={23}
+                color={active ? colors.text : colors.textFaint}
+              />
+            </View>
           </Pressable>
         );
       })}
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   brandRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3 },
-  brandMark: { ...type.brand, color: colors.text, fontSize: 17, letterSpacing: 3.2 },
+  brandMark: { ...type.brand, color: colors.text },
   brandDot: {
     width: 5,
     height: 5,
@@ -262,15 +264,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.pill,
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.card,
     marginLeft: -6,
   },
-  title: { ...type.title, color: colors.text, fontSize: 19 },
+  title: { ...type.title, color: colors.text, fontSize: 20 },
   subtitle: { ...type.small, color: colors.textFaint, marginTop: 2, fontWeight: '400' },
   headerActions: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
   body: { flex: 1 },
@@ -283,9 +285,18 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg,
   },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 2 },
+  // atsu lifts the active tab icon onto a soft rounded square instead of a label.
+  tabPill: {
+    width: 56,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabPillOn: { backgroundColor: colors.card },
 });

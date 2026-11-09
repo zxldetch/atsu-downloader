@@ -1,10 +1,10 @@
 /**
- * Memoised list building blocks.
+ * Memoised list building blocks, styled after the atsu.moe app.
  *
- * Every one of these is wrapped in `React.memo` and takes its handlers from the
- * parent as *stable* callbacks that receive an id, rather than a fresh closure
- * per row. That is what lets a download progressing in the background update
- * without re-rendering a two-hundred-row chapter list.
+ * Two things matter here beyond looks: every component is wrapped in
+ * `React.memo` and takes *stable* callbacks that receive an id (not a fresh
+ * closure per row), so a download progressing in the background cannot churn a
+ * two-hundred-row chapter list.
  */
 
 import { Image } from 'expo-image';
@@ -29,7 +29,42 @@ const coverProps = {
   transition: 140,
 };
 
-/** "Jump back in" row, straight out of atsu's mobile layout. */
+/** The little pills atsu pins to the corners of a cover. */
+function CoverBadge({
+  text,
+  tone = 'dark',
+  align = 'left',
+}: {
+  text: string;
+  tone?: 'dark' | 'accent' | 'gold' | 'blue';
+  align?: 'left' | 'right';
+}) {
+  const tones = {
+    dark: { bg: 'rgba(0,0,0,0.78)', fg: colors.text },
+    accent: { bg: colors.accent, fg: colors.onAccent },
+    gold: { bg: colors.gold, fg: colors.goldText },
+    blue: { bg: colors.blue, fg: colors.text },
+  }[tone];
+
+  return (
+    <View
+      style={[
+        styles.badge,
+        { backgroundColor: tones.bg },
+        align === 'right' ? { right: 6 } : { left: 6 },
+      ]}
+    >
+      <Text style={[styles.badgeText, { color: tones.fg }]} numberOfLines={1}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * "Continue Reading" row: square thumbnail, title, then one grey meta line with
+ * the chapter, percentage and how long ago — atsu's exact layout.
+ */
 export const ContinueRow = memo(function ContinueRow({
   mangaId,
   title,
@@ -60,25 +95,25 @@ export const ContinueRow = memo(function ContinueRow({
         recyclingKey={mangaId}
         {...coverProps}
       />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.continueLabel} numberOfLines={1}>
-          {label}
-        </Text>
-        <Text style={styles.continueTitle} numberOfLines={1}>
+      <View style={styles.continueBody}>
+        <Text style={styles.continueTitle} numberOfLines={2}>
           {title}
         </Text>
+        <Text style={styles.continueMeta} numberOfLines={1}>
+          {label}
+          {time ? `  ·  ${time}` : ''}
+        </Text>
         {progress ? (
-          <View style={{ marginTop: 6, marginRight: spacing.md }}>
-            <ProgressBar value={progress.value} total={progress.total} height={2} />
+          <View style={{ marginTop: 8 }}>
+            <ProgressBar value={progress.value} total={progress.total} height={3} />
           </View>
         ) : null}
       </View>
-      <Text style={styles.continueTime}>{time}</Text>
     </Pressable>
   );
 });
 
-/** Grid tile for the shelf / search results. */
+/** Grid tile for the shelf / search results, with atsu's corner badges. */
 export const SeriesCard = memo(function SeriesCard({
   entry,
   width,
@@ -92,14 +127,12 @@ export const SeriesCard = memo(function SeriesCard({
 }) {
   const downloaded = Object.keys(entry.chapters).length;
   const reading = entry.reading;
-  const subtitle = reading
+  const lastActivity = reading?.updatedAt ?? entry.addedAt;
+  const progress = reading
     ? `Ch. ${chapterNumberFromId(reading.chapterId)} · ${Math.round(
         (reading.page / Math.max(1, reading.total)) * 100,
       )}%`
-    : downloaded > 0
-      ? `${downloaded} offline`
-      : `${entry.chapterCount} chapters`;
-  const lastActivity = reading?.updatedAt ?? entry.addedAt;
+    : `${entry.chapterCount} chapters`;
 
   return (
     <Pressable
@@ -110,31 +143,32 @@ export const SeriesCard = memo(function SeriesCard({
       accessibilityRole="button"
       accessibilityLabel={entry.title}
     >
-      <Image
-        source={{ uri: entry.coverUrl }}
-        style={[styles.cover, { width, height: width / coverAspect }]}
-        recyclingKey={entry.mangaId}
-        {...coverProps}
-      />
-      <Text style={styles.gridTitle} numberOfLines={1}>
+      <View>
+        <Image
+          source={{ uri: entry.coverUrl }}
+          style={[styles.cover, { width, height: width / coverAspect }]}
+          recyclingKey={entry.mangaId}
+          {...coverProps}
+        />
+        <CoverBadge text={String(entry.chapterCount)} />
+        {downloaded > 0 ? (
+          <CoverBadge text={`${downloaded} offline`} tone="accent" align="right" />
+        ) : null}
+      </View>
+      <Text style={styles.gridTitle} numberOfLines={2}>
         {entry.title}
       </Text>
       <Text style={styles.gridChapter} numberOfLines={1}>
-        {subtitle}
+        {progress}
       </Text>
       <Text style={styles.gridMeta} numberOfLines={1}>
         {formatRelativeTime(lastActivity)}
       </Text>
-      {reading ? (
-        <View style={{ marginTop: 5 }}>
-          <ProgressBar value={reading.page} total={Math.max(1, reading.total)} height={2} />
-        </View>
-      ) : null}
     </Pressable>
   );
 });
 
-/** Square thumbnail row used in the shelf list layout and the queue. */
+/** Compact row used by search results. */
 export const LibraryRow = memo(function LibraryRow({
   entry,
   onPress,
@@ -171,11 +205,6 @@ export const LibraryRow = memo(function LibraryRow({
         <Text style={styles.rowMeta} numberOfLines={1}>
           {formatRelativeTime(reading?.updatedAt ?? entry.addedAt)}
         </Text>
-        {reading ? (
-          <View style={{ marginTop: 7 }}>
-            <ProgressBar value={reading.page} total={Math.max(1, reading.total)} height={2} />
-          </View>
-        ) : null}
       </View>
       <Icon name="chevron-forward" size={16} color={colors.textFaint} />
     </Pressable>
@@ -207,14 +236,15 @@ export const ChapterRow = memo(function ChapterRow({
       accessibilityLabel={chapterLabel(chapter)}
     >
       <View style={[styles.check, selected && styles.checkOn]}>
-        {selected ? <Icon name="checkmark" size={13} color={colors.onAccent} /> : null}
+        {selected ? <Icon name="checkmark" size={14} color={colors.onAccent} /> : null}
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.chapterTitle, selected && { color: colors.text }]} numberOfLines={1}>
+        <Text style={styles.chapterTitle} numberOfLines={1}>
           {chapterLabel(chapter)}
         </Text>
         <Text style={styles.chapterMeta} numberOfLines={1}>
           {status ?? `${chapter.pageCount} pages`}
+          {saved ? '  ·  offline' : ''}
         </Text>
       </View>
       {saved ? (
@@ -225,7 +255,7 @@ export const ChapterRow = memo(function ChapterRow({
           accessibilityRole="button"
           accessibilityLabel={`Read ${chapterLabel(chapter)}`}
         >
-          <Icon name="play" size={13} color={colors.accent} />
+          <Icon name="play" size={14} color={colors.onAccent} />
         </Pressable>
       ) : null}
     </Pressable>
@@ -252,7 +282,7 @@ const STATUS_ICON: Record<DownloadJob['status'], IconName> = {
 
 const STATUS_COLOR: Record<DownloadJob['status'], string> = {
   queued: colors.textDim,
-  downloading: colors.accent,
+  downloading: colors.accentText,
   paused: colors.warning,
   done: colors.success,
   error: colors.error,
@@ -303,8 +333,8 @@ export const JobRow = memo(function JobRow({
           {job.status === 'done' && job.bytes > 0 ? ` · ${formatBytes(job.bytes)}` : ''}
         </Text>
         {job.status === 'downloading' ? (
-          <View style={{ marginTop: 7 }}>
-            <ProgressBar value={job.pagesDone} total={Math.max(1, job.pagesTotal)} height={2} />
+          <View style={{ marginTop: 8 }}>
+            <ProgressBar value={job.pagesDone} total={Math.max(1, job.pagesTotal)} height={3} />
           </View>
         ) : null}
         {job.error ? (
@@ -406,49 +436,79 @@ function chapterNumberFromId(chapterId: string): string {
 }
 
 const styles = StyleSheet.create({
-  cover: { borderRadius: radius.md, backgroundColor: colors.input },
+  badge: {
+    position: 'absolute',
+    top: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.xs,
+    maxWidth: 110,
+  },
+  badgeText: { ...type.tiny, fontWeight: '700', fontSize: 11 },
+
+  cover: { borderRadius: radius.sm, backgroundColor: colors.input },
+
   continueRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
     backgroundColor: colors.card,
-    marginBottom: 6,
+    marginBottom: spacing.sm,
   },
-  continueCover: { width: 60, height: 60, borderRadius: radius.xs, backgroundColor: colors.input },
-  continueLabel: { ...type.tiny, color: colors.textDim, fontWeight: '500' },
-  continueTitle: { ...type.subtitle, color: colors.text, fontSize: 15, marginTop: 2 },
-  continueTime: { ...type.tiny, color: colors.textFaint, fontWeight: '500' },
-  gridTitle: { ...type.small, color: colors.text, fontWeight: '600', marginTop: spacing.sm },
-  gridChapter: { ...type.tiny, color: colors.accentText, fontWeight: '600', marginTop: 3 },
-  gridMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
+  continueCover: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.sm,
+    backgroundColor: colors.input,
+  },
+  continueBody: { flex: 1, paddingRight: spacing.xs },
+  continueTitle: { ...type.title, color: colors.text, fontSize: 19 },
+  continueMeta: {
+    ...type.small,
+    color: colors.textDim,
+    fontWeight: '400',
+    fontSize: 14,
+    marginTop: 5,
+  },
+
+  gridTitle: {
+    ...type.subtitle,
+    color: colors.text,
+    fontSize: 15,
+    marginTop: spacing.sm,
+    lineHeight: 19,
+  },
+  gridChapter: { ...type.tiny, color: colors.accentText, fontWeight: '600', marginTop: 4 },
+  gridMeta: { ...type.tiny, color: colors.textDim, fontWeight: '500', marginTop: 3 },
+
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
   },
-  rowCover: { width: 46, height: 64, borderRadius: radius.sm, backgroundColor: colors.input },
+  rowCover: { width: 52, height: 72, borderRadius: radius.xs, backgroundColor: colors.input },
   rowBody: { flex: 1 },
-  rowTitle: { ...type.subtitle, color: colors.text, fontSize: 14 },
+  rowTitle: { ...type.subtitle, color: colors.text, fontSize: 15 },
   rowChapter: { ...type.tiny, color: colors.accentText, fontWeight: '600', marginTop: 3 },
-  rowMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
+  rowMeta: { ...type.tiny, color: colors.textDim, fontWeight: '400', marginTop: 2 },
+
   chapterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    minHeight: 58,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.sm,
+    minHeight: 60,
   },
   check: {
-    width: 21,
-    height: 21,
+    width: 22,
+    height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
@@ -456,37 +516,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chapterTitle: { ...type.body, color: colors.textDim, fontWeight: '500' },
-  chapterMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
+  chapterTitle: { ...type.body, color: colors.textDim, fontWeight: '500', fontSize: 15 },
+  chapterMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 3 },
   readButton: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     borderRadius: radius.pill,
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   jobRow: {
     flexDirection: 'row',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     alignItems: 'flex-start',
   },
-  jobCover: { width: 38, height: 52, borderRadius: radius.xs, backgroundColor: colors.input },
-  jobTitle: { ...type.small, color: colors.text, fontWeight: '600' },
-  jobMeta: { ...type.tiny, color: colors.textDim, fontWeight: '500', marginTop: 2 },
+  jobCover: { width: 42, height: 56, borderRadius: radius.xs, backgroundColor: colors.input },
+  jobTitle: { ...type.small, color: colors.text, fontWeight: '600', fontSize: 14 },
+  jobMeta: { ...type.tiny, color: colors.textDim, fontWeight: '400', marginTop: 3 },
   jobError: { ...type.tiny, color: colors.error, fontWeight: '500', marginTop: 4 },
   jobStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   jobStatus: { ...type.tiny, fontWeight: '700', fontSize: 10, letterSpacing: 0.3 },
   jobStatusDetail: { ...type.tiny, color: colors.textFaint, fontSize: 10, fontWeight: '500' },
   jobActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   jobAction: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.card,
+    backgroundColor: colors.input,
   },
 });

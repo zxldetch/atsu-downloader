@@ -34,21 +34,34 @@ models.py            → src/types.ts
 
 ## Design
 
-The palette is sampled from atsu.moe itself, not eyeballed: the page is a mid-dark neutral
-(`#1D1F20`, the single most common pixel on the site), cards and rows sit one step above it
-(`#212325`), borders are `#2F3133`, and the only saturated colour is the violet of the site's
-primary button (`#7667C2`, with `#A196E0` for small purple text where contrast demands it).
-Covers are 2:3 with 8-10pt radii, section headers are sentence case, the tab bar is
-icon-only (filled and white when active), and "Jump back in" is a row list — thumbnail,
-`Ch. 12 · 34%` in violet, title, right-aligned timestamp — exactly as on the site.
+The palette is sampled from the atsu.moe **app**, pixel by pixel, not eyeballed: its base
+surface is near-black `#0D0E12`, cards and rows lift to `#191A1E`, segmented-control wells sit
+at `#08080A`, body text is pure white with a blue-grey secondary (`#B5B8BD`), and the only
+saturated colour is the violet of its Continue button, `#7569BF` (`#B3A9EC` for small purple
+text). Cover badges reuse the app's own badge colours — gold `#806000` and blue `#038DFC`.
+Corner radii are small (5–10pt), buttons are tall pills, chips are rounded rectangles, section
+headers are large and sentence case with a chevron when they navigate, and the tab bar lifts the
+active icon onto a soft rounded square instead of showing a label.
+
+The layout follows the reference screen by screen:
+
+- **Home** — `Continue Reading ›` rows (96pt square thumbnail, title, `Ch. 12 · 34% · 2h ago`)
+  and a right-aligned **See all ›** button, then the shelf grid with corner badges.
+- **Series** — cover hero with a 29pt title, genre pills, a stats line
+  (`233 chapters · 41 offline · 120 MB`), a TYPE / STATUS / AUTHOR grid, and a
+  `All · Unread · Read · Queue` segmented control over the chapter list.
+- **Reader** — dark rounded-square chrome buttons, a floating rounded title pill, a violet
+  scrubber and a centred page pill between the prev/next squares.
+- **Shelf** — `Your Bookmarks` with `All · Reading · Offline`.
+- **Settings** — inset cards over the same near-black surface.
 
 | Screen | What it does |
 |---|---|
-| **Home** | Search pill, *Jump back in* rows (continue reading with progress), live *Downloading* strip, and the whole shelf as a cover grid |
+| **Home** | Search pill, *Continue Reading* rows with progress and *See all ›*, a live *Downloading* strip, and the whole shelf as a cover grid with offline badges |
 | **Search** | Paste one link or several; live filter over your shelf by title, author or synopsis; demo chips when the demo source is on |
-| **Shelf** | *Library* (filter: all / reading / offline, long-press to remove) and *Downloads* (pause all, resume all, clear finished, share finished archives) |
-| **Series** | Cover hero, synopsis, range box, All / Missing / Unread / Latest 5 / None shortcuts, format chips, chapter filters (all / not downloaded / offline / in queue), oldest-or-newest sort, virtualised list, sticky *Download* bar |
-| **Reader** | Vertical or paged, page scrubber, tap to hide chrome, next-chapter hand-off, keep-awake, prefetches the next two pages |
+| **Shelf** | *Your Bookmarks* (filter: all / reading / offline, long-press to remove) and *Downloads* (pause all, resume all, clear finished, share finished archives) |
+| **Series** | Cover hero + genre pills + stats + TYPE/STATUS/AUTHOR grid, synopsis, range box, All / Missing / Unread / Latest 5 / None shortcuts, format chips, `All · Unread · Read · Queue` segmented filter, oldest-or-newest sort, virtualised list, sticky *Download* bar |
+| **Reader** | Vertical or paged, violet page scrubber with a page pill, tap to hide chrome, next-chapter hand-off, keep-awake, prefetches the next two pages |
 
 Everything visual is in `src/theme.ts` (tokens) and `src/components/ui.tsx` (kit). Icons are
 Ionicons, imported from `@expo/vector-icons/Ionicons` directly so only one font ships.

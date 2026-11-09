@@ -136,8 +136,7 @@ export function HomeScreen() {
             {continueReading.length > 0 ? (
               <>
                 <SectionHeader
-                  title="Jump back in"
-                  action="Shelf"
+                  title="Continue Reading"
                   onAction={() => nav.go('shelf')}
                 />
                 {continueReading.slice(0, 4).map((entry) => (
@@ -156,6 +155,15 @@ export function HomeScreen() {
                     onPress={openReader}
                   />
                 ))}
+                <Pressable
+                  onPress={() => nav.go('shelf')}
+                  accessibilityRole="button"
+                  accessibilityLabel="See all continue reading"
+                  style={({ pressed }) => [styles.seeAll, pressed && { backgroundColor: colors.input }]}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <Icon name="chevron-forward" size={16} color={colors.text} />
+                </Pressable>
               </>
             ) : null}
 
@@ -234,8 +242,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    height: 44,
-    borderRadius: radius.pill,
+    height: 46,
+    borderRadius: radius.md,
     backgroundColor: colors.card,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xs,
@@ -249,15 +257,27 @@ const styles = StyleSheet.create({
   queueButton: { padding: spacing.xs },
   queueBadge: {
     position: 'absolute',
-    top: -3,
-    right: -6,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 3,
-    borderRadius: 8,
-    backgroundColor: colors.accent,
+    top: -2,
+    right: -4,
+    minWidth: 24,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    backgroundColor: colors.accentText,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  queueBadgeText: { color: colors.onAccent, fontSize: 9, fontWeight: '800' },
+  queueBadgeText: { color: '#1A1430', fontSize: 11, fontWeight: '800' },
+  seeAll: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 11,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    marginTop: spacing.xs,
+  },
+  seeAllText: { ...type.subtitle, color: colors.text, fontSize: 15 },
 });

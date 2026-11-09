@@ -232,7 +232,16 @@ export function SectionHeader({
 }) {
   return (
     <View style={[styles.sectionHeader, style]}>
-      <Text style={styles.sectionHeaderText}>{title}</Text>
+      <Pressable
+        onPress={onAction ?? undefined}
+        disabled={!onAction}
+        hitSlop={8}
+        style={styles.sectionTitleRow}
+        accessibilityRole={onAction ? 'button' : undefined}
+      >
+        <Text style={styles.sectionHeaderText}>{title}</Text>
+        {onAction ? <Icon name="chevron-forward" size={19} color={colors.textDim} /> : null}
+      </Pressable>
       {action ? (
         <Pressable onPress={onAction} hitSlop={10}>
           <Text style={styles.sectionAction}>{action}</Text>
@@ -522,13 +531,13 @@ export function StatTile({
 
 const styles = StyleSheet.create({
   button: {
-    height: 46,
+    height: 50,
     paddingHorizontal: spacing.xl,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonSm: { height: 34, paddingHorizontal: spacing.md, borderRadius: radius.sm },
+  buttonSm: { height: 34, paddingHorizontal: spacing.lg, borderRadius: radius.pill },
   buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   buttonLabel: { ...type.subtitle, letterSpacing: 0.1 },
   buttonLabelSm: { ...type.small, fontWeight: '600' },
@@ -567,13 +576,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    maxWidth: 240,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: radius.sm,
+    maxWidth: 260,
+    backgroundColor: colors.card,
   },
-  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  chipText: { fontSize: 12, fontWeight: '600', letterSpacing: 0.1 },
+  chipInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  chipText: { fontSize: 14, fontWeight: '600', letterSpacing: 0 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -581,6 +591,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxl,
     marginBottom: spacing.md,
   },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sectionHeaderText: { ...type.section, color: colors.text },
   sectionAction: { ...type.small, color: colors.accentText, fontWeight: '600' },
   empty: {
@@ -605,9 +616,9 @@ const styles = StyleSheet.create({
   textFieldWrap: { position: 'relative', justifyContent: 'center' },
   textFieldIcon: { position: 'absolute', left: 14, zIndex: 1 },
   textField: {
-    height: 46,
+    height: 48,
     borderRadius: radius.md,
-    backgroundColor: colors.input,
+    backgroundColor: colors.card,
     paddingHorizontal: spacing.lg,
     color: colors.text,
     fontSize: 14,
@@ -615,9 +626,10 @@ const styles = StyleSheet.create({
   textFieldWithIcon: { paddingLeft: 40 },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: radius.pill,
-    padding: 3,
+    backgroundColor: colors.sunken,
+    borderRadius: radius.md,
+    padding: 4,
+    gap: 2,
   },
   segment: {
     flex: 1,
@@ -625,10 +637,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
+    paddingVertical: 9,
+    borderRadius: radius.sm,
   },
-  segmentActive: { backgroundColor: colors.inputStrong },
+  segmentActive: { backgroundColor: colors.card },
   segmentText: { ...type.small, color: colors.textDim, fontWeight: '600' },
   segmentTextActive: { color: colors.text },
   settingRow: {

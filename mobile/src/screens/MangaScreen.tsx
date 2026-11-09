@@ -6,7 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatBytes, parseChapterSelection } from '../api/parse';
 import { ChapterRow } from '../components/cards';
 import { Icon } from '../components/icons';
-import { Banner, Button, Chip, EmptyState, TextField } from '../components/ui';
+import { Banner, Button, Chip, EmptyState, Segmented, TextField } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import { colors, coverAspect, radius, spacing, type } from '../theme';
@@ -246,26 +246,65 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 transition={140}
               />
               <View style={styles.heroBody}>
-                <Text style={styles.heroTitle} numberOfLines={3}>
+                <Text style={styles.heroTitle} numberOfLines={4}>
                   {manga.title}
                 </Text>
-                <Text style={styles.heroMeta} numberOfLines={2}>
-                  {[manga.mangaType, manga.status, manga.authors.join(', ')]
-                    .filter(Boolean)
-                    .join(' · ')}
+                <Text style={styles.heroSub} numberOfLines={2}>
+                  {[manga.mangaType, manga.status].filter(Boolean).join(' · ')}
                 </Text>
-                <View style={styles.chipRow}>
-                  {manga.demo ? <Chip label="DEMO" tone="warning" icon="flask-outline" /> : null}
-                  {offlineCount > 0 ? (
-                    <Chip
-                      label={`${offlineCount} offline · ${formatBytes(offlineBytes)}`}
-                      tone="success"
-                      icon="checkmark-circle"
-                    />
-                  ) : null}
-                </View>
               </View>
             </View>
+
+            {/* atsu's tag pills: rounded rectangles, wrapping across rows. */}
+            {manga.genres.length > 0 ? (
+              <View style={styles.genreRow}>
+                {manga.genres.slice(0, 6).map((genre) => (
+                  <View key={genre} style={styles.genrePill}>
+                    <Text style={styles.genreText}>{genre}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {/* Stats line, like "☆ 6.7/10 · 👁 120.4K views · 📖 233 chapters". */}
+            <View style={styles.statsRow}>
+              <Icon name="albums-outline" size={15} color={colors.textDim} />
+              <Text style={styles.statsText}>{chapters.length} chapters</Text>
+              <Text style={styles.statsDot}>·</Text>
+              <Icon name="download-outline" size={15} color={colors.textDim} />
+              <Text style={styles.statsText}>
+                {offlineCount > 0 ? `${offlineCount} offline · ${formatBytes(offlineBytes)}` : 'none offline'}
+              </Text>
+              {manga.demo ? (
+                <>
+                  <Text style={styles.statsDot}>·</Text>
+                  <Chip label="DEMO" tone="warning" icon="flask-outline" />
+                </>
+              ) : null}
+            </View>
+
+            {manga.authors.length > 0 ? (
+              <View style={styles.infoGrid}>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>TYPE</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {manga.mangaType || '—'}
+                  </Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>STATUS</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {manga.status || '—'}
+                  </Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={styles.infoLabel}>AUTHOR</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {manga.authors.join(', ')}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.heroActions}>
               <Button
@@ -335,7 +374,10 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
             ) : null}
 
             <View style={styles.listHeader}>
-              <Text style={styles.listHeaderText}>Chapters</Text>
+              <Text style={styles.listHeaderText}>
+                Chapters
+                <Text style={styles.listHeaderCount}>  {visibleChapters.length}</Text>
+              </Text>
               <Pressable
                 onPress={() => setAscending((value) => !value)}
                 accessibilityRole="button"
@@ -351,21 +393,16 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
             </View>
 
             <View style={styles.filterRow}>
-              {(
-                [
-                  ['all', `All ${orderedChapters.length}`],
-                  ['missing', `Not downloaded ${missingChapters.length}`],
-                  ['saved', `Offline ${savedIds.size}`],
-                  ['queued', `In queue ${queuedIds.size}`],
-                ] as [ChapterFilter, string][]
-              ).map(([key, label]) => (
-                <Chip
-                  key={key}
-                  label={label}
-                  active={chapterFilter === key}
-                  onPress={() => setChapterFilter(key)}
-                />
-              ))}
+              <Segmented
+                value={chapterFilter}
+                onChange={setChapterFilter}
+                options={[
+                  { key: 'all', label: 'All' },
+                  { key: 'missing', label: `Unread ${missingChapters.length}` },
+                  { key: 'saved', label: `Read ${savedIds.size}` },
+                  { key: 'queued', label: `Queue ${queuedIds.size}` },
+                ]}
+              />
             </View>
           </View>
         }
@@ -419,24 +456,53 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   dim: { ...type.body, color: colors.textDim },
-  hero: { flexDirection: 'row', gap: spacing.lg, paddingTop: spacing.xs },
+  hero: { flexDirection: 'row', gap: spacing.lg, paddingTop: spacing.lg, alignItems: 'center' },
   cover: {
-    width: 104,
-    height: 104 / coverAspect,
+    width: 116,
+    height: 116 / coverAspect,
     borderRadius: radius.md,
     backgroundColor: colors.input,
   },
-  heroBody: { flex: 1, gap: 5 },
-  heroTitle: { ...type.title, color: colors.text },
-  heroMeta: { ...type.tiny, color: colors.textDim, fontWeight: '500', lineHeight: 15 },
+  heroBody: { flex: 1, gap: 6, justifyContent: 'center' },
+  heroTitle: { ...type.display, color: colors.text, fontSize: 29, lineHeight: 34 },
+  heroSub: { ...type.small, color: colors.textDim, fontWeight: '500' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  genreRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
+  genrePill: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: radius.sm,
+    backgroundColor: colors.card,
+  },
+  genreText: { ...type.body, color: colors.text, fontWeight: '500', fontSize: 15 },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: spacing.lg,
+  },
+  statsText: { ...type.body, color: colors.textDim, fontWeight: '500', fontSize: 15 },
+  statsDot: { ...type.body, color: colors.textFaint, fontSize: 15 },
+  infoGrid: {
+    flexDirection: 'row',
+    gap: spacing.xl,
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  infoCell: { flexShrink: 1, gap: 4 },
+  infoLabel: { ...type.tiny, color: colors.textFaint, fontWeight: '700', letterSpacing: 0.7 },
+  infoValue: { ...type.small, color: colors.text, fontWeight: '500', fontSize: 15 },
   heroActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   synopsis: {
-    ...type.small,
+    ...type.body,
     color: colors.textDim,
     fontWeight: '400',
-    lineHeight: 18,
-    marginTop: spacing.lg,
+    fontSize: 16,
+    lineHeight: 25,
+    marginTop: spacing.xl,
   },
   controlCard: {
     backgroundColor: colors.card,
@@ -457,14 +523,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   listHeaderText: { ...type.section, color: colors.text },
+  listHeaderCount: { ...type.section, color: colors.textFaint, fontWeight: '600' },
   listHeaderMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '600' },
   sortButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
+  filterRow: { paddingBottom: spacing.md },
   footerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   footerCount: { ...type.body, color: colors.text, fontWeight: '600' },
   footerHint: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
