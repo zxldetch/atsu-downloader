@@ -238,29 +238,39 @@ export function Chip({
 /** atsu-style section header: sentence case, optional violet action. */
 export function SectionHeader({
   title,
+  subtitle,
   action,
   onAction,
   style,
 }: {
   title: string;
+  /** One line under the title, e.g. "2 series · 1 chapter offline". */
+  subtitle?: string;
   action?: string;
   onAction?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View style={[styles.sectionHeader, style]}>
-      <Pressable
-        onPress={onAction ?? undefined}
-        disabled={!onAction}
-        hitSlop={8}
-        style={styles.sectionTitleRow}
-        accessibilityRole={onAction ? 'button' : undefined}
-      >
-        <Text style={styles.sectionHeaderText} accessibilityRole="header">
-          {title}
-        </Text>
-        {onAction ? <Icon name="chevron-forward" size={19} color={colors.textDim} /> : null}
-      </Pressable>
+      <View style={styles.sectionTitleColumn}>
+        <Pressable
+          onPress={onAction ?? undefined}
+          disabled={!onAction}
+          hitSlop={8}
+          style={styles.sectionTitleRow}
+          accessibilityRole={onAction ? 'button' : undefined}
+        >
+          <Text style={styles.sectionHeaderText} accessibilityRole="header">
+            {title}
+          </Text>
+          {onAction ? <Icon name="chevron-forward" size={19} color={colors.textDim} /> : null}
+        </Pressable>
+        {subtitle ? (
+          <Text style={styles.sectionSubtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
       {action ? (
         <Pressable onPress={onAction} hitSlop={10}>
           <Text style={styles.sectionAction}>{action}</Text>
@@ -671,7 +681,16 @@ const styles = makeStyles((colors) => ({
     marginTop: spacing.xxl,
     marginBottom: spacing.md,
   },
+  sectionTitleColumn: { flex: 1 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  /** Tucked under the heading, so the shelf summary belongs to it. */
+  sectionSubtitle: {
+    ...type.small,
+    color: colors.textDim,
+    fontWeight: '500',
+    fontSize: 12.5,
+    marginTop: 2,
+  },
   sectionHeaderText: { ...type.section, color: colors.text },
   sectionAction: { ...type.small, color: colors.accentText, fontWeight: '600' },
   empty: {

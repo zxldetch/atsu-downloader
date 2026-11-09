@@ -101,6 +101,11 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
     }
   }, [jobs]);
 
+  const offlineChapters = useMemo(
+    () => library.reduce((sum, entry) => sum + Object.keys(entry.chapters).length, 0),
+    [library],
+  );
+
   const pauseAll = useCallback(() => actions.pauseAll(), [actions]);
   const resumeAll = useCallback(() => actions.resumeAll(), [actions]);
   const clearFinished = useCallback(() => actions.clearFinishedJobs(), [actions]);
@@ -110,10 +115,9 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
       title="Your Bookmarks"
       subtitle={
         segment === 'library'
-          ? `${library.length} series · ${library.reduce(
-              (sum, entry) => sum + Object.keys(entry.chapters).length,
-              0,
-            )} chapters offline`
+          ? `${library.length} series · ${offlineChapters} chapter${
+              offlineChapters === 1 ? '' : 's'
+            } offline`
           : `${activeCount} in progress · ${jobs.length} total`
       }
     >

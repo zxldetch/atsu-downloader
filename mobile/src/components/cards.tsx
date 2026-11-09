@@ -201,12 +201,14 @@ export const LibraryRow = memo(function LibraryRow({
           {entry.title}
         </Text>
         <Text style={styles.rowChapter} numberOfLines={1}>
-          {reading ? `Ch. ${chapterNumberFromId(reading.chapterId)} · ` : ''}
-          {downloaded} offline
-          {bytes > 0 ? ` · ${formatBytes(bytes)}` : ''}
+          {reading ? `Ch. ${chapterNumberFromId(reading.chapterId)}  ·  ` : ''}
+          {downloaded === 0
+            ? 'Not downloaded'
+            : `${downloaded} chapter${downloaded === 1 ? '' : 's'} offline`}
+          {bytes > 0 ? `  ·  ${formatBytes(bytes)}` : ''}
         </Text>
         <Text style={styles.rowMeta} numberOfLines={1}>
-          {formatRelativeTime(reading?.updatedAt ?? entry.addedAt)}
+          {`updated ${formatRelativeTime(reading?.updatedAt ?? entry.addedAt)}`}
         </Text>
       </View>
       <Icon name="chevron-forward" size={16} color={colors.textFaint} />

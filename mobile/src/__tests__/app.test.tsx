@@ -193,6 +193,24 @@ describe('Atsu Offline app', () => {
     offline.mockRestore();
   });
 
+  it('puts the shelf summary directly under its heading', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    // The series route is pushed, so step back to the tabs before Home.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Back'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Home'));
+    });
+
+    // One line, inside the "Your shelf" header — not floating below the grid.
+    expect(screen.getByText('Your shelf')).toBeTruthy();
+    expect(screen.getByText(/^1 series · updated /)).toBeTruthy();
+    expect(screen.queryByText(/0 chapters offline/)).toBeNull();
+  });
+
   it('keeps everything on the shelf tab after loading a series', async () => {
     await renderApp();
     await openDemoSeries();

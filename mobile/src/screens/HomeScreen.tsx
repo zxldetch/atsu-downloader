@@ -29,6 +29,31 @@ export function HomeScreen() {
     [jobs],
   );
 
+  /**
+   * "2 series · 1 chapter offline · updated 1m ago".
+   *
+   * The timestamp used to be the newest `addedAt`, which says when a series was
+   * added rather than when anything happened; last activity is the reading
+   * position, a download, or the add date, whichever is newest.
+   */
+  const shelfSummary = useMemo(() => {
+    const chapters = library.reduce((sum, entry) => sum + Object.keys(entry.chapters).length, 0);
+
+    let lastActivity = 0;
+    for (const entry of library) {
+      lastActivity = Math.max(lastActivity, entry.addedAt ?? 0, entry.reading?.updatedAt ?? 0);
+      for (const chapter of Object.values(entry.chapters)) {
+        lastActivity = Math.max(lastActivity, chapter.updatedAt ?? 0);
+      }
+    }
+
+    const parts = [`${library.length} series`];
+    // "0 chapters offline" is noise — say nothing until something is saved.
+    if (chapters > 0) parts.push(`${chapters} chapter${chapters === 1 ? '' : 's'} offline`);
+    if (lastActivity > 0) parts.push(`updated ${formatRelativeTime(lastActivity)}`);
+    return parts.join(' · ');
+  }, [library]);
+
   const continueReading = useMemo(
     () =>
       library
@@ -204,6 +229,7 @@ export function HomeScreen() {
             {library.length > 0 ? (
               <SectionHeader
                 title="Your shelf"
+                subtitle={shelfSummary}
                 action="See all"
                 onAction={() => nav.go('shelf')}
               />
@@ -225,20 +251,6 @@ export function HomeScreen() {
               </View>
             ) : null}
 
-            {library.length > 0 ? (
-              <View style={styles.recentRow}>
-                <Text style={styles.recentText}>
-                  {library.length} series ·{' '}
-                  {library.reduce((sum, entry) => sum + Object.keys(entry.chapters).length, 0)}{' '}
-                  chapters offline
-                  {library.length > 0
-                    ? ` · updated ${formatRelativeTime(
-                        Math.max(...library.map((entry) => entry.addedAt)),
-                      )}`
-                    : ''}
-                </Text>
-              </View>
-            ) : null}
           </View>
         }
       />
@@ -263,8 +275,6 @@ const styles = makeStyles((colors) => ({
   rail: { gap: spacing.md, paddingRight: spacing.lg },
   jobCard: { backgroundColor: colors.card, borderRadius: radius.lg, paddingVertical: spacing.xs },
   emptyWrap: { marginTop: spacing.xxl },
-  recentRow: { paddingTop: spacing.xl },
-  recentText: { ...type.tiny, color: colors.textFaint, fontWeight: '500' },
   queueButton: { padding: spacing.xs },
   queueBadge: {
     position: 'absolute',
