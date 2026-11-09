@@ -254,7 +254,8 @@ jobs:
         run: |
           set -euo pipefail
           NOTES="Sideloadable Android build from \`${GITHUB_SHA:0:7}\` (run #${{ github.run_number }}).
-          Not a store release: signed with the debug keystore, for personal use.
+          Not a store release. Signed with the app's own key, so this installs over the
+          previous build and keeps your shelf, settings and downloads.
           Install steps: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/mobile/INSTALL.md"
           if gh release view mobile-latest >/dev/null 2>&1; then
             gh release upload mobile-latest artifacts/atsu-mobile.apk artifacts/version.json --clobber
