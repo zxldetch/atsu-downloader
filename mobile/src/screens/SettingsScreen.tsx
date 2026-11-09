@@ -18,7 +18,16 @@ import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type } from '../theme';
+import {
+  colors,
+  makeStyles,
+  palettes,
+  radius,
+  spacing,
+  type,
+  THEME_OPTIONS,
+  type ThemeName,
+} from '../theme';
 import type { OutputFormat } from '../types';
 
 const FORMATS: { key: OutputFormat; label: string }[] = [
@@ -120,6 +129,43 @@ export function SettingsScreen() {
             label={config.demoMode ? 'DEMO' : 'LIVE'}
             tone={config.demoMode ? 'warning' : 'success'}
           />
+        </View>
+
+        <SectionHeader title="Appearance" />
+        <View style={styles.card}>
+          <Text style={styles.rowLabel}>Theme</Text>
+          <Segmented<ThemeName>
+            options={THEME_OPTIONS.map((option) => ({
+              key: option.key,
+              label: option.label,
+            }))}
+            value={config.theme}
+            onChange={(theme) => actions.updateConfig({ theme })}
+            style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
+          />
+          <Text style={styles.rowHint}>
+            {THEME_OPTIONS.find((option) => option.key === config.theme)?.hint ?? ''} · every
+            screen, the reader chrome and the splash follow this choice.
+          </Text>
+          <View style={styles.swatches}>
+            {(Object.keys(palettes) as ThemeName[]).map((name) => (
+              <Pressable
+                key={name}
+                onPress={() => actions.updateConfig({ theme: name })}
+                accessibilityRole="button"
+                accessibilityLabel={`Use the ${name} theme`}
+                accessibilityState={{ selected: config.theme === name }}
+                style={[
+                  styles.swatch,
+                  { backgroundColor: palettes[name].bg, borderColor: palettes[name].borderStrong },
+                  config.theme === name && { borderColor: colors.accent, borderWidth: 2 },
+                ]}
+              >
+                <View style={[styles.swatchCard, { backgroundColor: palettes[name].card }]} />
+                <View style={[styles.swatchAccent, { backgroundColor: palettes[name].accent }]} />
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         <SectionHeader title="Reader" />
@@ -370,7 +416,7 @@ function LinkRow({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl },
   identity: {
     flexDirection: 'row',
@@ -393,6 +439,17 @@ const styles = StyleSheet.create({
   identityTitle: { ...type.subtitle, color: colors.text },
   identityMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
   card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg },
+  swatches: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  swatch: {
+    flex: 1,
+    height: 52,
+    borderRadius: radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  swatchCard: { height: 12, borderRadius: 3 },
+  swatchAccent: { height: 6, width: '45%', borderRadius: 3 },
   rowLabel: { ...type.body, color: colors.text, fontWeight: '600' },
   rowHint: { ...type.tiny, color: colors.textFaint, fontWeight: '500', lineHeight: 16 },
   chipRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.sm },
@@ -420,4 +477,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
-});
+}));

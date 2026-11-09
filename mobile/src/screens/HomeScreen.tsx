@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 import { formatChapterNumber, formatRelativeTime } from '../api/parse';
 import { ContinueRow, JobRow, SeriesCard } from '../components/cards';
@@ -7,7 +7,7 @@ import { Icon } from '../components/icons';
 import { Banner, EmptyState, SectionHeader } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, radius, spacing, type, makeStyles } from '../theme';
 import type { LibraryEntry } from '../types';
 
 const GUTTER = spacing.lg;
@@ -235,7 +235,7 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   content: { paddingHorizontal: GUTTER, paddingBottom: spacing.xxxl },
   column: { gap: GAP, justifyContent: 'space-between' },
   searchPill: {
@@ -280,4 +280,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   seeAllText: { ...type.subtitle, color: colors.text, fontSize: 15 },
-});
+}));

@@ -475,6 +475,7 @@ export class DownloadQueue {
         status: 'Unknown',
         scanlators: [],
         chapters: Array.from({ length: meta?.chapterCount ?? 0 }, () => emptyChapter),
+        groups: [],
       };
       const chapter: Chapter = {
         id: job.chapterId,

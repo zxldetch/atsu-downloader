@@ -5,6 +5,20 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ---
 
+## New in this build
+
+- **Scanlation groups** — open a series posted by more than one group (e.g. Iron
+  Season in demo mode) and a `Scanlation group` row appears above the chapters.
+  Pick `Delta Scans` and only Delta's chapters are listed, selected and
+  downloaded. Your choice is remembered per series.
+- **Themes** — Settings → Appearance → `Normal` (atsu Midnight), `Dark` (true
+  black, OLED) or `Light` (daylight). The switch is instant and keeps you on the
+  screen you were on.
+- **Opening animation** — the logo rises out of the black splash while your shelf
+  is restored, then fades away. It is skipped if you use Reduce Motion.
+- **New icon** — plain black with the white "A" and a violet dot; the old
+  template's guide rings are gone.
+
 ## 1. Download the APK
 
 Straight to the phone — no login, no unzipping:

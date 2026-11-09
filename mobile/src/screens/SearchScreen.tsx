@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 
 import { looksLikeMangaTarget } from '../api/parse';
 import { LibraryRow } from '../components/cards';
@@ -7,7 +7,7 @@ import { Icon, type IconName } from '../components/icons';
 import { Banner, Button, Chip, EmptyState, SectionHeader, TextField } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, radius, spacing, type, makeStyles } from '../theme';
 import type { LibraryEntry } from '../types';
 
 /** Up to this many links can be pasted at once. */
@@ -192,7 +192,7 @@ function filterLibrary(library: LibraryEntry[], query: string): LibraryEntry[] {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl },
   linkCard: {
     flexDirection: 'row',
@@ -217,4 +217,4 @@ const styles = StyleSheet.create({
   helpRow: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.sm },
   helpTitle: { ...type.body, color: colors.text, fontWeight: '600' },
   helpBody: { ...type.tiny, color: colors.textFaint, marginTop: 2, fontWeight: '500', lineHeight: 15 },
-});
+}));

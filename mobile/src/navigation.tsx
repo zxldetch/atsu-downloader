@@ -12,7 +12,7 @@ import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from './components/icons';
-import { colors, radius, spacing, type } from './theme';
+import { colors, radius, spacing, type, makeStyles } from './theme';
 
 export type TabName = 'home' | 'search' | 'shelf' | 'settings';
 
@@ -184,7 +184,9 @@ export function Screen({
       {brand ? (
         <View style={styles.brandHeader}>
           <View style={styles.brandRow}>
-            <Text style={styles.brandMark}>ATSU</Text>
+            <Text style={styles.brandMark} accessibilityRole="header">
+            ATSU
+          </Text>
             <View style={styles.brandDot} />
           </View>
           <View style={styles.headerActions}>{right}</View>
@@ -236,7 +238,7 @@ export function Screen({
 export { Icon };
 export type { IconName };
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   safe: { flex: 1, backgroundColor: colors.bg },
   brandHeader: {
     flexDirection: 'row',
@@ -253,7 +255,7 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     backgroundColor: colors.accent,
-    marginTop: 4,
+    marginTop: 7,
   },
   header: {
     flexDirection: 'row',
@@ -299,4 +301,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabPillOn: { backgroundColor: colors.card },
-});
+}));

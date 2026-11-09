@@ -18,7 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, spacing, type } from '../theme';
+import { colors, radius, spacing, type, makeStyles } from '../theme';
 import { Icon, type IconName } from './icons';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -239,7 +239,9 @@ export function SectionHeader({
         style={styles.sectionTitleRow}
         accessibilityRole={onAction ? 'button' : undefined}
       >
-        <Text style={styles.sectionHeaderText}>{title}</Text>
+        <Text style={styles.sectionHeaderText} accessibilityRole="header">
+          {title}
+        </Text>
         {onAction ? <Icon name="chevron-forward" size={19} color={colors.textDim} /> : null}
       </Pressable>
       {action ? (
@@ -365,7 +367,7 @@ export function Segmented<T extends string>({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={[styles.segmented, style]}>
+    <View style={[styles.segmented, style]} accessibilityRole="tablist">
       {options.map((option) => {
         const active = option.key === value;
         return (
@@ -529,7 +531,7 @@ export function StatTile({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   button: {
     height: 50,
     paddingHorizontal: spacing.xl,
@@ -577,7 +579,9 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 10,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: radius.sm,
     maxWidth: 260,
     backgroundColor: colors.card,
@@ -707,4 +711,4 @@ const styles = StyleSheet.create({
   },
   statValue: { ...type.title, color: colors.text, fontSize: 17 },
   statLabel: { ...type.tiny, color: colors.textFaint, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 10 },
-});
+}));

@@ -9,7 +9,7 @@ import { Icon } from '../components/icons';
 import { Banner, Button, Chip, EmptyState, Segmented, TextField } from '../components/ui';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, coverAspect, radius, spacing, type } from '../theme';
+import { colors, coverAspect, radius, spacing, type, makeStyles } from '../theme';
 import type { Chapter, DownloadJob, OutputFormat } from '../types';
 
 type ChapterFilter = 'all' | 'saved' | 'missing' | 'queued';
@@ -41,6 +41,11 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [chapterFilter, setChapterFilter] = useState<ChapterFilter>('all');
   const [ascending, setAscending] = useState(true);
+  // 'auto' follows the biggest group; anything else is an explicit pick, which
+  // is remembered per series so re-opening a manga lands on the same group.
+  const [groupChoice, setGroupChoice] = useState<string>(
+    () => config.groupChoice[mangaId] ?? 'auto',
+  );
 
   // Restored libraries only keep counts, so refetch when the chapter list is missing.
   useEffect(() => {
@@ -70,13 +75,42 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   }, [jobs, mangaId]);
 
   const chapters = manga?.chapters ?? [];
+  const groups = manga?.groups ?? [];
+
+  /** Groups that actually posted chapters, plus the explicit "all" view. */
+  const activeGroupId = useMemo(() => {
+    if (groups.length === 0) return 'all';
+    if (groupChoice === 'all') return 'all';
+    if (groups.some((group) => group.id === groupChoice)) return groupChoice;
+    return groups[0].id;
+  }, [groupChoice, groups]);
+
+  /** The chapter list before any downloaded/queued filtering. */
+  const groupChapters = useMemo(() => {
+    if (activeGroupId === 'all') return chapters;
+    return chapters.filter(
+      (chapter) => (chapter.groupId ?? chapter.group ?? '') === activeGroupId,
+    );
+  }, [activeGroupId, chapters]);
+
+  const chooseGroup = useCallback(
+    (id: string) => {
+      setGroupChoice(id);
+      setSelection(new Set());
+      actions.updateConfig({ groupChoice: { ...config.groupChoice, [mangaId]: id } });
+    },
+    [actions, config.groupChoice, mangaId],
+  );
 
   const savedIds = useMemo(() => new Set(Object.keys(entry?.chapters ?? {})), [entry?.chapters]);
 
   /** Reading order: oldest first by default, which is how you binge. */
   const orderedChapters = useMemo(
-    () => [...chapters].sort((a, b) => (ascending ? a.number - b.number : b.number - a.number)),
-    [ascending, chapters],
+    () =>
+      [...groupChapters].sort((a, b) =>
+        ascending ? a.number - b.number : b.number - a.number,
+      ),
+    [ascending, groupChapters],
   );
 
   const queuedIds = useMemo(() => new Set(statusByChapter.keys()), [statusByChapter]);
@@ -102,8 +136,8 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   );
 
   const selectedChapters = useMemo(
-    () => chapters.filter((chapter) => selection.has(chapter.id)),
-    [chapters, selection],
+    () => groupChapters.filter((chapter) => selection.has(chapter.id)),
+    [groupChapters, selection],
   );
 
   const toggle = useCallback((chapterId: string) => {
@@ -158,10 +192,10 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   /** Newest-first is what you want most of the time, so offer it as a shortcut. */
   const selectLatest = useCallback(
     (count: number) => {
-      const sorted = [...chapters].sort((a, b) => b.number - a.number).slice(0, count);
+      const sorted = [...groupChapters].sort((a, b) => b.number - a.number).slice(0, count);
       setSelection(new Set(sorted.map((chapter) => chapter.id)));
     },
-    [chapters],
+    [groupChapters],
   );
 
   const startDownload = useCallback(() => {
@@ -278,7 +312,9 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               {manga.demo ? (
                 <>
                   <Text style={styles.statsDot}>·</Text>
-                  <Chip label="DEMO" tone="warning" icon="flask-outline" />
+                  <View style={styles.demoPill}>
+                    <Text style={styles.demoPillText}>DEMO</Text>
+                  </View>
                 </>
               ) : null}
             </View>
@@ -373,6 +409,34 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               </Banner>
             ) : null}
 
+            {groups.length > 1 ? (
+              <View style={styles.groupBlock}>
+                <View style={styles.groupHeader}>
+                  <Text style={styles.groupTitle}>Scanlation group</Text>
+                  <Text style={styles.groupHint}>
+                    {activeGroupId === 'all'
+                      ? 'Showing every group'
+                      : `Downloads use ${groups.find((group) => group.id === activeGroupId)?.name ?? 'this group'}`}
+                  </Text>
+                </View>
+                <View style={styles.groupRow}>
+                  <Chip
+                    label={`All ${chapters.length}`}
+                    active={activeGroupId === 'all'}
+                    onPress={() => chooseGroup('all')}
+                  />
+                  {groups.map((group) => (
+                    <Chip
+                      key={group.id}
+                      label={`${group.name} ${group.chapterCount}`}
+                      active={activeGroupId === group.id}
+                      onPress={() => chooseGroup(group.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.listHeader}>
               <Text style={styles.listHeaderText}>
                 Chapters
@@ -412,6 +476,9 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
             selected={selection.has(item.id)}
             status={statusByChapter.get(item.id) ?? null}
             saved={Boolean(entry?.chapters?.[item.id])}
+            groupLabel={
+              groups.length > 1 && activeGroupId === 'all' ? (item.group ?? null) : null
+            }
             onToggle={toggle}
             onRead={openReader}
           />
@@ -442,7 +509,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
         ListFooterComponent={
           chapters.length > 0 ? (
             <Text style={styles.footerNote}>
-              {visibleChapters.length} of {chapters.length} chapters shown · numbered as atsu.moe
+              {visibleChapters.length} of {groupChapters.length} chapters shown · numbered as atsu.moe
               lists them
             </Text>
           ) : undefined
@@ -452,7 +519,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   dim: { ...type.body, color: colors.textDim },
@@ -484,6 +551,13 @@ const styles = StyleSheet.create({
   },
   statsText: { ...type.body, color: colors.textDim, fontWeight: '500', fontSize: 15 },
   statsDot: { ...type.body, color: colors.textFaint, fontSize: 15 },
+  demoPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.xs,
+    backgroundColor: colors.warningSoft,
+  },
+  demoPillText: { ...type.tiny, color: colors.warning, fontSize: 10, letterSpacing: 0.6 },
   infoGrid: {
     flexDirection: 'row',
     gap: spacing.xl,
@@ -522,6 +596,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxl,
     paddingBottom: spacing.sm,
   },
+  groupBlock: { marginTop: spacing.xl, gap: spacing.sm },
+  groupHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  groupTitle: { ...type.subtitle, color: colors.text, fontSize: 15 },
+  groupHint: { ...type.tiny, color: colors.textFaint, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
+  groupRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   listHeaderText: { ...type.section, color: colors.text },
   listHeaderCount: { ...type.section, color: colors.textFaint, fontWeight: '600' },
   listHeaderMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '600' },
@@ -537,4 +616,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: spacing.xl,
   },
-});
+}));

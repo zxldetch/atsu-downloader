@@ -8,6 +8,7 @@
  */
 
 import type { Chapter, MangaInfo, Page } from '../types';
+import { withGroups } from './client';
 import { DEMO_COVERS } from './demoCovers';
 import { DEMO_PAGES } from './demoPages';
 
@@ -27,6 +28,11 @@ interface DemoSeed {
   /** Chapters that carry a decimal number, like the real site's side stories. */
   decimals?: Record<number, number>;
   titles: string[];
+  /**
+   * Extra scanlation groups, so the group picker has something to pick from.
+   * `from`/`to` are 1-based chapter numbers the rival group has released.
+   */
+  rivals?: { id: string; name: string; from: number; to: number }[];
 }
 
 const SEEDS: DemoSeed[] = [
@@ -118,11 +124,16 @@ const SEEDS: DemoSeed[] = [
       'Last forge',
       'Iron season',
     ],
+    // Two groups released the opening chapters, exactly like the real site.
+    rivals: [
+      { id: 'demo-iron-alpha', name: 'Alpha Scans', from: 1, to: 9 },
+      { id: 'demo-iron-delta', name: 'Delta Scans', from: 1, to: 4 },
+    ],
   },
 ];
 
 function toChapters(seed: DemoSeed): Chapter[] {
-  return Array.from({ length: seed.chapterCount }, (_, index) => {
+  const rows: Chapter[] = Array.from({ length: seed.chapterCount }, (_, index) => {
     const number = seed.decimals?.[index + 1] ?? index + 1;
     return {
       id: `${seed.id}-ch-${index + 1}`,
@@ -130,13 +141,34 @@ function toChapters(seed: DemoSeed): Chapter[] {
       number,
       index,
       pageCount: seed.pageCounts[index] ?? 8,
-      scanlationMangaId: seed.id,
+      scanlationMangaId: `${seed.id}-scan`,
+      group: 'Demo Scans',
+      groupId: `${seed.id}-scan`,
     };
   });
+
+  // Rival groups post their own copies of the same chapter numbers.
+  for (const rival of seed.rivals ?? []) {
+    for (let index = rival.from - 1; index < Math.min(rival.to, seed.chapterCount); index += 1) {
+      const number = seed.decimals?.[index + 1] ?? index + 1;
+      rows.push({
+        id: `${rival.id}-ch-${index + 1}`,
+        title: seed.titles[index] ?? `Chapter ${index + 1}`,
+        number,
+        index,
+        pageCount: seed.pageCounts[index] ?? 8,
+        scanlationMangaId: rival.id,
+        group: rival.name,
+        groupId: rival.id,
+      });
+    }
+  }
+
+  return rows;
 }
 
 function toManga(seed: DemoSeed): MangaInfo {
-  return {
+  const manga: MangaInfo = {
     id: seed.id,
     title: seed.title,
     mangaType: seed.type,
@@ -145,10 +177,16 @@ function toManga(seed: DemoSeed): MangaInfo {
     genres: seed.genres,
     authors: seed.authors,
     status: seed.status,
-    scanlators: [{ id: `${seed.id}-scan`, name: 'Demo Scans' }],
+    scanlators: [
+      { id: `${seed.id}-scan`, name: 'Demo Scans' },
+      ...(seed.rivals ?? []).map((rival) => ({ id: rival.id, name: rival.name })),
+    ],
     chapters: toChapters(seed),
+    groups: [],
     demo: true,
   };
+
+  return withGroups(manga);
 }
 
 export const DEMO_LIBRARY: MangaInfo[] = SEEDS.map(toManga);

@@ -30,7 +30,7 @@ async function renderApp() {
 }
 
 /** Home → Search → demo chip → Load → lands on the series screen. */
-async function openDemoSeries(title = 'The Lantern Courier') {
+async function openDemoSeries(title = 'The Lantern Courier', subtitle = '12 chapters · 0 offline') {
   await act(async () => {
     fireEvent.press(screen.getByLabelText('Search manga or paste a link'));
   });
@@ -43,7 +43,7 @@ async function openDemoSeries(title = 'The Lantern Courier') {
     fireEvent.press(screen.getByText('Load'));
   });
 
-  await screen.findByText('12 chapters · 0 offline', {}, { timeout: 4000 });
+  await screen.findByText(subtitle, {}, { timeout: 4000 });
 }
 
 beforeEach(async () => {
@@ -221,6 +221,52 @@ describe('Atsu Mobile app', () => {
 
     expect(screen.getByText(/Peak parallelism is/)).toBeTruthy();
     expect(screen.getByText(/72 connections/)).toBeTruthy();
+  });
+
+  it('lists scanlation groups and filters chapters to the chosen one', async () => {
+    await renderApp();
+    // Iron Season ships two rival groups in the demo fixtures.
+    await openDemoSeries('Iron Season', '34 chapters · 0 offline');
+
+    expect(screen.getByText('Scanlation group')).toBeTruthy();
+    expect(screen.getByText('Delta Scans 4')).toBeTruthy();
+    expect(screen.getByText('Alpha Scans 9')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Delta Scans 4'));
+    });
+
+    expect(screen.getByText('4 of 4 chapters shown · numbered as atsu.moe lists them')).toBeTruthy();
+    expect(screen.getByText('Downloads use Delta Scans')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('All 34'));
+    });
+    expect(screen.getByText('34 of 34 chapters shown · numbered as atsu.moe lists them')).toBeTruthy();
+  });
+
+  it('switches between the normal, dark and light themes', async () => {
+    await renderApp();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Settings'));
+    });
+    await screen.findByText('Appearance');
+
+    expect(screen.getByText('atsu.moe Midnight · every screen, the reader chrome and the splash follow this choice.')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Light'));
+    });
+    expect(screen.getByText('Daylight · every screen, the reader chrome and the splash follow this choice.')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Dark'));
+    });
+    expect(screen.getByText('True-black OLED · every screen, the reader chrome and the splash follow this choice.')).toBeTruthy();
+
+    // The theme remount must not throw you back to Home.
+    expect(screen.getByText('Appearance')).toBeTruthy();
   });
 
   it('exposes the upgraded settings: reader, downloads, storage and about', async () => {

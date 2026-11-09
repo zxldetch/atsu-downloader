@@ -66,6 +66,69 @@ The layout follows the reference screen by screen:
 Everything visual is in `src/theme.ts` (tokens) and `src/components/ui.tsx` (kit). Icons are
 Ionicons, imported from `@expo/vector-icons/Ionicons` directly so only one font ships.
 
+### Scanlation groups
+
+A series can be posted by several groups ("Delta", "Alpha", ...), each with its
+own copy of the same chapter numbers. The series screen detects that and shows a
+`Scanlation group` picker — `All 34 · Alpha Scans 9 · Delta Scans 4` — because
+downloading "chapter 5" is ambiguous otherwise.
+
+- `client.ts` reads the group from every field atsu has used for it
+  (`scanlator.name`, `groupName`, `team`, ...), falls back to matching
+  `scanlationMangaId` against the series' `scanlators`, and de-duplicates chapters
+  *within* a group instead of across groups.
+- The picker remembers your choice per series (`config.groupChoice`), defaults to
+  the group with the most chapters, and the range box, `Missing N`, `Unread` and
+  `Select all` shortcuts all operate on the visible group only.
+- In the `All` view every row is tagged with its group so repeated numbers are
+  never a surprise.
+
+### Themes
+
+`Normal`, `Dark` and `Light`, switchable in **Settings → Appearance** (with a
+three-swatch preview):
+
+| | surface | cards | accent |
+|---|---|---|---|
+| **Normal** | `#0D0E12` | `#191A1E` | `#7569BF` |
+| **Dark** | `#000000` | `#101114` | `#8A7CF0` |
+| **Light** | `#F4F4F7` | `#FFFFFF` | `#5B4DB8` |
+
+Normal is the atsu.moe palette sampled from the app; Dark is the same design on
+true-black for OLED panels (with a slightly brighter violet, since pure black
+gives less ambient contrast); Light keeps every layout rule and flips the surface
+tokens for daylight reading. Switching is instant and keeps your place: the
+theme is a token swap, so `theme.ts` exposes `colors` as a palette proxy plus
+`makeStyles`, which builds and caches one StyleSheet per theme and is read lazily
+at render time.
+
+### Motion and accessibility
+
+The opening animation is the app icon in motion: the wordmark rises and fades in
+over the same black field the native splash uses, the violet dot pulses, and a
+hairline bar fills while the store rehydrates — then the overlay fades out. Screen
+changes cross-fade with a 10pt rise. All of it is `opacity`/`transform` only, so
+it runs on the native driver and never competes with the download queue.
+
+Deliberately **no animation library**: for a handful of short fades the built-in
+`Animated` API with `useNativeDriver` is the cheapest option, while Reanimated
+(and Moti on top of it) only pay off for gesture-driven or many-node animations,
+and would add native build surface to the APK for nothing
+([benchmarks](https://andrei-calazans.com/posts/2026-07-15-which-react-native-animation-library/),
+[overview](https://www.f22labs.com/blogs/9-best-react-native-animation-libraries/)).
+
+Accessibility follows the common React Native checklist
+([guide](https://reactnativerelay.com/article/react-native-accessibility-guide-building-inclusive-apps-expo)):
+
+- every interactive element has a role and a label; icon-only buttons are labelled,
+- selections are exposed as `accessibilityState` (`tablist`/`tab`, `checkbox`/`checked`),
+- a finished download is announced with `AccessibilityInfo.announceForAccessibility`,
+- Reduce Motion is honoured: the splash, route fade and pulse are skipped entirely,
+- body text keeps WCAG AA contrast in all three themes, and the light theme darkens
+  secondary text and the accent rather than reusing the dark values,
+- chips and buttons keep ≥40-44pt targets, and font scaling is left enabled with
+  `numberOfLines` guarding layouts.
+
 ### Download throughput
 
 100 chapters is the normal case for this app, so the pipeline is tuned for it rather than for

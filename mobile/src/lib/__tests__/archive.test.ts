@@ -13,6 +13,7 @@ const manga: MangaInfo = {
   authors: ['A. Rivera'],
   status: 'Ongoing',
   scanlators: [],
+  groups: [],
   chapters: Array.from({ length: 12 }, (_, index) => ({
     id: `ch-${index}`,
     title: `Chapter ${index + 1}`,

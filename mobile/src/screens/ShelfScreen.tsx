@@ -8,7 +8,7 @@ import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
 import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, spacing, type } from '../theme';
+import { colors, spacing, type, makeStyles } from '../theme';
 import type { DownloadJob, LibraryEntry } from '../types';
 
 type Segment = 'library' | 'downloads';
@@ -256,7 +256,7 @@ function chapterTimes(entry: LibraryEntry): number[] {
   return values.length > 0 ? values : [0];
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   segmentWrap: { paddingHorizontal: GUTTER, paddingBottom: spacing.md },
   content: { paddingHorizontal: GUTTER, paddingBottom: spacing.xxxl },
   column: { gap: GAP, justifyContent: 'space-between' },
@@ -281,4 +281,4 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   jobSeparator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: 66 },
-});
+}));

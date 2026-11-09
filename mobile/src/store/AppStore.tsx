@@ -22,7 +22,7 @@ import {
   fetchMangaWithChapters,
   getChapterPages,
 } from '../api/client';
-import { parseMangaId } from '../api/parse';
+import { formatChapterNumber, parseMangaId } from '../api/parse';
 import {
   DEMO_LIBRARY,
   demoManga,
@@ -31,6 +31,7 @@ import {
   isDemoMangaId,
 } from '../api/demo';
 import { DownloadQueue, jobId, type JobMeta } from '../download/queue';
+import { announce } from '../lib/motion';
 import * as storage from '../lib/storage';
 import {
   DEFAULT_CONFIG,
@@ -174,6 +175,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         onJob: queueJobUpdate,
         onLibraryUpdate: (job) => {
           if (job.status !== 'done') return;
+          // Screen-reader users get the same confirmation sighted users get from
+          // the row flipping to "Saved".
+          announce(`${job.mangaTitle}, chapter ${formatChapterNumber(job.chapterNumber)} saved`);
           setState((prev) => {
             const existing = prev.library.find((entry) => entry.mangaId === job.mangaId);
             if (!existing) return prev;

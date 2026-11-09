@@ -1,17 +1,7 @@
 import { Image } from 'expo-image';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pageImageUrl } from '../api/client';
@@ -21,7 +11,7 @@ import { Button, ProgressBar } from '../components/ui';
 import * as storage from '../lib/storage';
 import { useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
-import { colors, radius, spacing, type } from '../theme';
+import { colors, radius, spacing, type, makeStyles } from '../theme';
 
 interface ReaderPage {
   key: string;
@@ -357,7 +347,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: '#000000' },
   center: { alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   loadingText: { ...type.small, color: colors.textDim },
@@ -443,4 +433,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   endText: { ...type.small, color: colors.textDim },
-});
+}));

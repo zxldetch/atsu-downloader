@@ -9,7 +9,7 @@
 
 import { Image } from 'expo-image';
 import React, { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import {
   chapterLabel,
@@ -19,7 +19,7 @@ import {
   formatSpeed,
 } from '../api/parse';
 import type { Chapter, DownloadJob, LibraryEntry } from '../types';
-import { colors, coverAspect, radius, spacing, type } from '../theme';
+import { colors, coverAspect, radius, spacing, type, makeStyles } from '../theme';
 import { Icon, type IconName } from './icons';
 import { ProgressBar } from './ui';
 
@@ -217,6 +217,7 @@ export const ChapterRow = memo(function ChapterRow({
   selected,
   status,
   saved,
+  groupLabel,
   onToggle,
   onRead,
 }: {
@@ -224,6 +225,8 @@ export const ChapterRow = memo(function ChapterRow({
   selected: boolean;
   status: string | null;
   saved: boolean;
+  /** Shown only in the "all groups" view, where numbers repeat. */
+  groupLabel?: string | null;
   onToggle: (chapterId: string) => void;
   onRead: (chapterId: string) => void;
 }) {
@@ -245,6 +248,7 @@ export const ChapterRow = memo(function ChapterRow({
         <Text style={styles.chapterMeta} numberOfLines={1}>
           {status ?? `${chapter.pageCount} pages`}
           {saved ? '  ·  offline' : ''}
+          {groupLabel ? `  ·  ${groupLabel}` : ''}
         </Text>
       </View>
       {saved ? (
@@ -435,7 +439,7 @@ function chapterNumberFromId(chapterId: string): string {
   return digits ? digits[1] : chapterId.replace(/^.*-/, '');
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles((colors) => ({
   badge: {
     position: 'absolute',
     top: 6,
@@ -550,4 +554,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.input,
   },
-});
+}));

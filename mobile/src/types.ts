@@ -1,5 +1,7 @@
 /** Domain types — mirrors the desktop app's models.py. */
 
+import type { ThemeName } from './theme';
+
 export type OutputFormat = 'images' | 'cbz' | 'pdf';
 
 export interface Page {
@@ -19,6 +21,17 @@ export interface Chapter {
   index: number;
   pageCount: number;
   scanlationMangaId: string;
+  /** Scanlation group that published this copy of the chapter ("Delta", ...). */
+  group?: string;
+  /** Stable id of that group, used for filtering. */
+  groupId?: string;
+}
+
+/** One scanlation group active on a series, with how many chapters it has. */
+export interface MangaGroup {
+  id: string;
+  name: string;
+  chapterCount: number;
 }
 
 export interface Scanlator {
@@ -37,6 +50,8 @@ export interface MangaInfo {
   status: string;
   scanlators: Scanlator[];
   chapters: Chapter[];
+  /** Groups that actually posted chapters, biggest first. */
+  groups: MangaGroup[];
   /** True when the payload came from bundled demo fixtures. */
   demo?: boolean;
 }
@@ -111,6 +126,10 @@ export interface Config {
   readerMode: 'vertical' | 'paged';
   /** Keep the screen on while reading. */
   keepScreenAwake: boolean;
+  /** normal = atsu Midnight, dark = OLED black, light = daylight. */
+  theme: ThemeName;
+  /** Remembered scanlation group per manga id. */
+  groupChoice: Record<string, string>;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -126,4 +145,6 @@ export const DEFAULT_CONFIG: Config = {
   demoMode: process.env.EXPO_PUBLIC_DEMO === '1',
   readerMode: 'vertical',
   keepScreenAwake: true,
+  theme: 'normal',
+  groupChoice: {},
 };

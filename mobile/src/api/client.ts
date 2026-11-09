@@ -10,7 +10,7 @@
 
 import { Platform } from 'react-native';
 
-import type { Chapter, Config, MangaInfo, Page, Scanlator } from '../types';
+import type { Chapter, Config, MangaGroup, MangaInfo, Page, Scanlator } from '../types';
 
 export const UPSTREAM_BASE = 'https://atsu.moe';
 export const UPSTREAM_CDN = 'https://cdn.atsu.moe';
@@ -125,7 +125,54 @@ const numberOrZero = (value: unknown): number => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
+/**
+ * Atsu posts several scanlation groups per series ("Delta", "Alpha", ...), and
+ * the shape of that info has moved around in their payloads, so every field we
+ * have seen it under is checked, nested and flat.
+ */
+function groupNameOf(raw: any): string {
+  const candidates = [
+    raw?.scanlator?.name,
+    raw?.scanlatorName,
+    raw?.scanlator_name,
+    raw?.scanlationGroup?.name,
+    raw?.group?.name,
+    raw?.groupName,
+    raw?.group_name,
+    raw?.team?.name,
+    typeof raw?.team === 'string' ? raw.team : undefined,
+    raw?.scanlationName,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return '';
+}
+
+function groupIdOf(raw: any): string {
+  const candidates = [
+    raw?.scanlator?.id,
+    raw?.scanlatorId,
+    raw?.scanlator_id,
+    raw?.scanlationGroup?.id,
+    raw?.group?.id,
+    raw?.groupId,
+    raw?.group_id,
+    raw?.team?.id,
+    raw?.scanlationMangaId,
+    raw?.scanId,
+  ];
+  for (const candidate of candidates) {
+    if (candidate !== undefined && candidate !== null && String(candidate).trim()) {
+      return String(candidate).trim();
+    }
+  }
+  return '';
+}
+
 function toChapter(raw: any): Chapter {
+  const group = groupNameOf(raw);
+  const groupId = groupIdOf(raw);
   return {
     id: String(raw?.id ?? ''),
     title: String(raw?.title ?? ''),
@@ -133,7 +180,47 @@ function toChapter(raw: any): Chapter {
     index: numberOrZero(raw?.index),
     pageCount: numberOrZero(raw?.pageCount),
     scanlationMangaId: String(raw?.scanlationMangaId ?? raw?.scanId ?? ''),
+    ...(group ? { group } : {}),
+    ...(groupId ? { groupId } : {}),
   };
+}
+
+/**
+ * Fill in a chapter's group from the series' scanlator list and derive the group
+ * summary the series screen renders. Idempotent, so callers can run it after
+ * merging a re-fetched chapter list into a cached one.
+ */
+export function withGroups(
+  manga: MangaInfo,
+  scanlators: Scanlator[] = manga.scanlators,
+): MangaInfo & { groups: MangaGroup[] } {
+  const byId = new Map(scanlators.map((scanlator) => [scanlator.id, scanlator.name]));
+
+  const chapters = manga.chapters.map((chapter) => {
+    if (chapter.group) return chapter;
+    const name = byId.get(chapter.groupId ?? '') ?? byId.get(chapter.scanlationMangaId);
+    return name ? { ...chapter, group: name } : chapter;
+  });
+
+  const counts = new Map<string, MangaGroup>();
+  for (const chapter of chapters) {
+    const name = chapter.group ?? '';
+    if (!name) continue;
+    // Group by name when the API only gives ids per chapter copy.
+    const key = name.toLowerCase();
+    const existing = counts.get(key);
+    if (existing) existing.chapterCount += 1;
+    else {
+      counts.set(key, {
+        id: chapter.groupId || name,
+        name,
+        chapterCount: 1,
+      });
+    }
+  }
+
+  const groups = [...counts.values()].sort((a, b) => b.chapterCount - a.chapterCount);
+  return { ...manga, chapters, groups };
 }
 
 function normalizeChapterNumber(value: number): string {
@@ -152,7 +239,11 @@ export function parseMangaInfo(payload: any): MangaInfo {
     const chapter = toChapter(raw);
     if (!chapter.id || seenIds.has(chapter.id)) continue;
 
-    const key = `${normalizeChapterNumber(chapter.number)}|${chapter.title.trim().toLowerCase()}`;
+    const key = `${normalizeChapterNumber(chapter.number)}|${chapter.title.trim().toLowerCase()}|${(
+      chapter.group ??
+      chapter.groupId ??
+      chapter.scanlationMangaId
+    ).toLowerCase()}`;
     if (seenKeys.has(key)) continue;
 
     seenIds.add(chapter.id);
@@ -181,7 +272,7 @@ export function parseMangaInfo(payload: any): MangaInfo {
       ? manga.tags
       : [];
 
-  return {
+  const info: MangaInfo = {
     id: String(manga.id ?? ''),
     title: String(manga.title ?? manga.englishTitle ?? 'Unknown'),
     mangaType: String(manga.type ?? 'Unknown'),
@@ -194,7 +285,10 @@ export function parseMangaInfo(payload: any): MangaInfo {
     status: String(manga.status ?? 'Unknown'),
     scanlators,
     chapters,
+    groups: [],
   };
+
+  return withGroups(info);
 }
 
 /** Image URL for a page, accepting demo data URIs unchanged. */
@@ -266,7 +360,9 @@ export async function fetchMangaWithChapters(
 
   const manga = await getMangaInfo(mangaId, options);
   const chapters = await getAllChapters(mangaId, options);
-  return { ...manga, chapters: chapters.length > 0 ? chapters : manga.chapters };
+  // Re-derive groups after merging: the allChapters payload often carries the
+  // group per chapter even when the manga page only lists scanlator ids.
+  return withGroups({ ...manga, chapters: chapters.length > 0 ? chapters : manga.chapters });
 }
 
 export async function fetchChapterPages(
