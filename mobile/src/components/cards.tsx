@@ -11,7 +11,13 @@ import { Image } from 'expo-image';
 import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { chapterLabel, formatBytes } from '../api/parse';
+import {
+  chapterLabel,
+  formatBytes,
+  formatEta,
+  formatRelativeTime,
+  formatSpeed,
+} from '../api/parse';
 import type { Chapter, DownloadJob, LibraryEntry } from '../types';
 import { colors, coverAspect, radius, spacing, type } from '../theme';
 import { Icon, type IconName } from './icons';
@@ -23,48 +29,51 @@ const coverProps = {
   transition: 140,
 };
 
-/** Big cover in a horizontal rail ("Jump back in"). */
-export const RailCard = memo(function RailCard({
+/** "Jump back in" row, straight out of atsu's mobile layout. */
+export const ContinueRow = memo(function ContinueRow({
   mangaId,
   title,
   coverUrl,
-  meta,
+  label,
+  time,
   progress,
-  width,
   onPress,
 }: {
   mangaId: string;
   title: string;
   coverUrl: string;
-  meta: string;
+  label: string;
+  time: string;
   progress?: { value: number; total: number };
-  width: number;
   onPress: (mangaId: string) => void;
 }) {
   return (
     <Pressable
       onPress={() => onPress(mangaId)}
-      style={({ pressed }) => [{ width, opacity: pressed ? 0.8 : 1 }]}
+      style={({ pressed }) => [styles.continueRow, pressed && { backgroundColor: colors.input }]}
       accessibilityRole="button"
       accessibilityLabel={title}
     >
       <Image
         source={{ uri: coverUrl }}
-        style={[styles.cover, { width, height: width / coverAspect }]}
+        style={styles.continueCover}
         recyclingKey={mangaId}
         {...coverProps}
       />
-      <Text style={styles.railTitle} numberOfLines={2}>
-        {title}
-      </Text>
-      <Text style={styles.railMeta} numberOfLines={1}>
-        {meta}
-      </Text>
-      {progress ? (
-        <View style={{ marginTop: 6 }}>
-          <ProgressBar value={progress.value} total={progress.total} height={2} />
-        </View>
-      ) : null}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.continueLabel} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.continueTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {progress ? (
+          <View style={{ marginTop: 6, marginRight: spacing.md }}>
+            <ProgressBar value={progress.value} total={progress.total} height={2} />
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.continueTime}>{time}</Text>
     </Pressable>
   );
 });
@@ -90,6 +99,7 @@ export const SeriesCard = memo(function SeriesCard({
     : downloaded > 0
       ? `${downloaded} offline`
       : `${entry.chapterCount} chapters`;
+  const lastActivity = reading?.updatedAt ?? entry.addedAt;
 
   return (
     <Pressable
@@ -109,8 +119,11 @@ export const SeriesCard = memo(function SeriesCard({
       <Text style={styles.gridTitle} numberOfLines={1}>
         {entry.title}
       </Text>
-      <Text style={styles.gridMeta} numberOfLines={1}>
+      <Text style={styles.gridChapter} numberOfLines={1}>
         {subtitle}
+      </Text>
+      <Text style={styles.gridMeta} numberOfLines={1}>
+        {formatRelativeTime(lastActivity)}
       </Text>
       {reading ? (
         <View style={{ marginTop: 5 }}>
@@ -150,10 +163,13 @@ export const LibraryRow = memo(function LibraryRow({
         <Text style={styles.rowTitle} numberOfLines={1}>
           {entry.title}
         </Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>
-          {reading ? `Chapter ${chapterNumberFromId(reading.chapterId)} · ` : ''}
+        <Text style={styles.rowChapter} numberOfLines={1}>
+          {reading ? `Ch. ${chapterNumberFromId(reading.chapterId)} · ` : ''}
           {downloaded} offline
           {bytes > 0 ? ` · ${formatBytes(bytes)}` : ''}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>
+          {formatRelativeTime(reading?.updatedAt ?? entry.addedAt)}
         </Text>
         {reading ? (
           <View style={{ marginTop: 7 }}>
@@ -299,6 +315,12 @@ export const JobRow = memo(function JobRow({
         <View style={styles.jobStatusRow}>
           <Icon name={STATUS_ICON[job.status]} size={12} color={color} />
           <Text style={[styles.jobStatus, { color }]}>{STATUS_LABEL[job.status]}</Text>
+          {job.status === 'downloading' && formatSpeed(job.pagesPerSecond) ? (
+            <Text style={styles.jobStatusDetail}>· {formatSpeed(job.pagesPerSecond)}</Text>
+          ) : null}
+          {job.status === 'downloading' && formatEta(job.etaSeconds) ? (
+            <Text style={styles.jobStatusDetail}>· {formatEta(job.etaSeconds)}</Text>
+          ) : null}
         </View>
       </View>
       <View style={styles.jobActions}>
@@ -385,14 +407,21 @@ function chapterNumberFromId(chapterId: string): string {
 
 const styles = StyleSheet.create({
   cover: { borderRadius: radius.md, backgroundColor: colors.input },
-  railTitle: {
-    ...type.small,
-    color: colors.text,
-    fontWeight: '600',
-    marginTop: spacing.sm,
+  continueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor: colors.card,
+    marginBottom: 6,
   },
-  railMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
+  continueCover: { width: 60, height: 60, borderRadius: radius.xs, backgroundColor: colors.input },
+  continueLabel: { ...type.tiny, color: colors.textDim, fontWeight: '500' },
+  continueTitle: { ...type.subtitle, color: colors.text, fontSize: 15, marginTop: 2 },
+  continueTime: { ...type.tiny, color: colors.textFaint, fontWeight: '500' },
   gridTitle: { ...type.small, color: colors.text, fontWeight: '600', marginTop: spacing.sm },
+  gridChapter: { ...type.tiny, color: colors.accentText, fontWeight: '600', marginTop: 3 },
   gridMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
   row: {
     flexDirection: 'row',
@@ -405,7 +434,8 @@ const styles = StyleSheet.create({
   rowCover: { width: 46, height: 64, borderRadius: radius.sm, backgroundColor: colors.input },
   rowBody: { flex: 1 },
   rowTitle: { ...type.subtitle, color: colors.text, fontSize: 14 },
-  rowMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 3 },
+  rowChapter: { ...type.tiny, color: colors.accentText, fontWeight: '600', marginTop: 3 },
+  rowMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },
   chapterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -449,6 +479,7 @@ const styles = StyleSheet.create({
   jobError: { ...type.tiny, color: colors.error, fontWeight: '500', marginTop: 4 },
   jobStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   jobStatus: { ...type.tiny, fontWeight: '700', fontSize: 10, letterSpacing: 0.3 },
+  jobStatusDetail: { ...type.tiny, color: colors.textFaint, fontSize: 10, fontWeight: '500' },
   jobActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   jobAction: {
     width: 30,

@@ -27,6 +27,20 @@ const FORMATS: { key: OutputFormat; label: string }[] = [
   { key: 'images', label: 'Images' },
 ];
 
+type SpeedPreset = 'gentle' | 'balanced' | 'turbo';
+
+const SPEED_PRESETS: {
+  key: SpeedPreset;
+  label: string;
+  chapters: number;
+  images: number;
+  hint: string;
+}[] = [
+  { key: 'gentle', label: 'Gentle', chapters: 2, images: 4, hint: 'Cooler phone, lighter on data' },
+  { key: 'balanced', label: 'Balanced', chapters: 4, images: 8, hint: 'Recommended' },
+  { key: 'turbo', label: 'Turbo', chapters: 6, images: 12, hint: 'Fastest on good Wi-Fi' },
+];
+
 const REPO_URL = 'https://github.com/zxldetch/atsu-downloader';
 const GUIDE_URL = `${REPO_URL}/blob/main/mobile/INSTALL.md`;
 const SITE_URL = 'https://atsu.moe';
@@ -35,6 +49,14 @@ export function SettingsScreen() {
   const { config, jobs, library, actions } = useApp();
   const nav = useNav();
   const [busy, setBusy] = useState<'downloads' | 'all' | null>(null);
+
+  const activePreset = useMemo(() => {
+    const match = SPEED_PRESETS.find(
+      (preset) =>
+        preset.chapters === config.concurrentChapters && preset.images === config.concurrentImages,
+    );
+    return match?.key ?? 'custom';
+  }, [config.concurrentChapters, config.concurrentImages]);
 
   const stats = useMemo(() => {
     const chapters = library.reduce(
@@ -149,12 +171,34 @@ export function SettingsScreen() {
         </View>
 
         <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.rowLabel}>Download speed</Text>
+          <Segmented<SpeedPreset>
+            options={SPEED_PRESETS.map((preset) => ({ key: preset.key, label: preset.label }))}
+            value={activePreset as SpeedPreset}
+            onChange={(key) => {
+              const preset = SPEED_PRESETS.find((entry) => entry.key === key);
+              if (!preset) return;
+              actions.updateConfig({
+                concurrentChapters: preset.chapters,
+                concurrentImages: preset.images,
+              });
+            }}
+            style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
+          />
+          <Text style={styles.rowHint}>
+            {SPEED_PRESETS.find((preset) => preset.key === activePreset)?.hint ??
+              `Custom — ${config.concurrentChapters} chapters × ${config.concurrentImages} images.`}{' '}
+            Peak parallelism is{' '}
+            {config.concurrentChapters * config.concurrentImages} connections; if pages start
+            failing or the phone gets hot, step down one level.
+          </Text>
+          <Divider style={{ marginVertical: spacing.sm }} />
           <Stepper
             label="Chapters at once"
             hint="Phones do better with fewer parallel chapters than a desktop."
             value={config.concurrentChapters}
             min={1}
-            max={5}
+            max={8}
             onChange={(concurrentChapters) => actions.updateConfig({ concurrentChapters })}
           />
           <Divider />
@@ -163,7 +207,7 @@ export function SettingsScreen() {
             hint="Higher is faster, heavier on data and battery."
             value={config.concurrentImages}
             min={1}
-            max={8}
+            max={16}
             onChange={(concurrentImages) => actions.updateConfig({ concurrentImages })}
           />
           <Divider />

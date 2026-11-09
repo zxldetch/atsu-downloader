@@ -108,11 +108,21 @@ export function storageRootDescription(): string {
 
 /* --------------------------------------------------------------- operations */
 
+/**
+ * Directories confirmed to exist during this session.
+ *
+ * The download loop used to create the chapter directory once per *page*, which
+ * is 40-60 pointless native calls per chapter and hundreds across a long queue.
+ */
+const ensuredDirs = new Set<string>();
+
 export async function ensureDir(path: string): Promise<void> {
   if (isWeb) return;
+  if (ensuredDirs.has(path)) return;
   const { Directory, Paths } = fs();
   const segments = path.split('/').filter(Boolean);
   new Directory(Paths.document, ...segments).create({ intermediates: true, idempotent: true });
+  ensuredDirs.add(path);
 }
 
 export async function exists(path: string): Promise<boolean> {
@@ -185,6 +195,11 @@ export async function remove(path: string): Promise<void> {
 }
 
 export async function removeDir(path: string): Promise<void> {
+  // Anything under the removed path must be re-created before it can be written.
+  for (const dir of [...ensuredDirs]) {
+    if (dir === path || dir.startsWith(`${path}/`)) ensuredDirs.delete(dir);
+  }
+
   if (isWeb) {
     for (const key of [...memory.keys()]) {
       if (key === path || key.startsWith(`${path}/`)) memory.delete(key);

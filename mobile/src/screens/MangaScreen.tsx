@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatBytes, parseChapterSelection } from '../api/parse';
 import { ChapterRow } from '../components/cards';
@@ -11,6 +11,8 @@ import { Screen, useNav } from '../navigation';
 import { useApp } from '../store/AppStore';
 import { colors, coverAspect, radius, spacing, type } from '../theme';
 import type { Chapter, DownloadJob, OutputFormat } from '../types';
+
+type ChapterFilter = 'all' | 'saved' | 'missing' | 'queued';
 
 const FORMATS: { key: OutputFormat; label: string }[] = [
   { key: 'cbz', label: 'CBZ' },
@@ -37,6 +39,8 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [range, setRange] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>('all');
+  const [ascending, setAscending] = useState(true);
 
   // Restored libraries only keep counts, so refetch when the chapter list is missing.
   useEffect(() => {
@@ -67,6 +71,36 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
 
   const chapters = manga?.chapters ?? [];
 
+  const savedIds = useMemo(() => new Set(Object.keys(entry?.chapters ?? {})), [entry?.chapters]);
+
+  /** Reading order: oldest first by default, which is how you binge. */
+  const orderedChapters = useMemo(
+    () => [...chapters].sort((a, b) => (ascending ? a.number - b.number : b.number - a.number)),
+    [ascending, chapters],
+  );
+
+  const queuedIds = useMemo(() => new Set(statusByChapter.keys()), [statusByChapter]);
+
+  const visibleChapters = useMemo(() => {
+    switch (chapterFilter) {
+      case 'saved':
+        return orderedChapters.filter((chapter) => savedIds.has(chapter.id));
+      case 'missing':
+        return orderedChapters.filter((chapter) => !savedIds.has(chapter.id));
+      case 'queued':
+        return orderedChapters.filter(
+          (chapter) => queuedIds.has(chapter.id) && !savedIds.has(chapter.id),
+        );
+      default:
+        return orderedChapters;
+    }
+  }, [chapterFilter, orderedChapters, queuedIds, savedIds]);
+
+  const missingChapters = useMemo(
+    () => orderedChapters.filter((chapter) => !savedIds.has(chapter.id)),
+    [orderedChapters, savedIds],
+  );
+
   const selectedChapters = useMemo(
     () => chapters.filter((chapter) => selection.has(chapter.id)),
     [chapters, selection],
@@ -93,26 +127,33 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
   );
 
   const selectAll = useCallback(
-    () => setSelection(new Set(chapters.map((chapter) => chapter.id))),
-    [chapters],
+    () => setSelection(new Set(visibleChapters.map((chapter) => chapter.id))),
+    [visibleChapters],
   );
   const clearSelection = useCallback(() => setSelection(new Set()), []);
 
   const selectUnread = useCallback(() => {
-    const maybe = (chapter: Chapter) => !entry?.chapters?.[chapter.id] && !statusByChapter.get(chapter.id);
-    setSelection(new Set(chapters.filter(maybe).map((chapter) => chapter.id)));
-  }, [chapters, entry?.chapters, statusByChapter]);
+    const maybe = (chapter: Chapter) => !savedIds.has(chapter.id) && !queuedIds.has(chapter.id);
+    setSelection(new Set(visibleChapters.filter(maybe).map((chapter) => chapter.id)));
+  }, [queuedIds, savedIds, visibleChapters]);
+
+  /** Every chapter that isn't on the device yet — one tap for a whole back catalogue. */
+  const selectMissing = useCallback(
+    () => setSelection(new Set(missingChapters.map((chapter) => chapter.id))),
+    [missingChapters],
+  );
 
   const applyRange = useCallback(() => {
     if (!range.trim()) return;
-    const indices = parseChapterSelection(range, chapters.length);
+    // Ranges follow the on-screen order, so "1-10" always means chapters 1 to 10.
+    const indices = parseChapterSelection(range, orderedChapters.length);
     if (indices.length === 0) {
       setMessage('That selection matched no chapters. Try “1-10” or “1,3,5-7”.');
       return;
     }
-    setSelection(new Set(indices.map((index) => chapters[index].id)));
+    setSelection(new Set(indices.map((index) => orderedChapters[index].id)));
     setMessage(null);
-  }, [chapters, range]);
+  }, [orderedChapters, range]);
 
   /** Newest-first is what you want most of the time, so offer it as a shortcut. */
   const selectLatest = useCallback(
@@ -185,7 +226,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
       }
     >
       <FlatList
-        data={chapters}
+        data={visibleChapters}
         keyExtractor={(chapter) => chapter.id}
         contentContainerStyle={styles.content}
         initialNumToRender={12}
@@ -262,6 +303,11 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
 
               <View style={styles.quickRow}>
                 <Chip label="All" icon="checkmark-done" onPress={selectAll} />
+                <Chip
+                  label={missingChapters.length > 0 ? `Missing ${missingChapters.length}` : 'Missing'}
+                  icon="cloud-download-outline"
+                  onPress={selectMissing}
+                />
                 <Chip label="Unread" icon="ellipse-outline" onPress={selectUnread} />
                 <Chip label="Latest 5" icon="sparkles-outline" onPress={() => selectLatest(5)} />
                 <Chip label="None" icon="close" onPress={clearSelection} />
@@ -290,9 +336,36 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
 
             <View style={styles.listHeader}>
               <Text style={styles.listHeaderText}>Chapters</Text>
-              <Text style={styles.listHeaderMeta}>
-                {selection.size > 0 ? `${selection.size} selected` : 'Tap to select'}
-              </Text>
+              <Pressable
+                onPress={() => setAscending((value) => !value)}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle chapter order"
+                hitSlop={8}
+                style={({ pressed }) => [styles.sortButton, pressed && { opacity: 0.6 }]}
+              >
+                <Icon name={ascending ? 'arrow-up' : 'arrow-down'} size={13} color={colors.textDim} />
+                <Text style={styles.listHeaderMeta}>
+                  {ascending ? 'Oldest first' : 'Newest first'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.filterRow}>
+              {(
+                [
+                  ['all', `All ${orderedChapters.length}`],
+                  ['missing', `Not downloaded ${missingChapters.length}`],
+                  ['saved', `Offline ${savedIds.size}`],
+                  ['queued', `In queue ${queuedIds.size}`],
+                ] as [ChapterFilter, string][]
+              ).map(([key, label]) => (
+                <Chip
+                  key={key}
+                  label={label}
+                  active={chapterFilter === key}
+                  onPress={() => setChapterFilter(key)}
+                />
+              ))}
             </View>
           </View>
         }
@@ -307,16 +380,33 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
           />
         )}
         ListEmptyComponent={
-          <EmptyState
-            icon="albums-outline"
-            title="No chapters listed"
-            body="atsu.moe returned this series without a chapter list. Pull it up again in a moment, or check the link."
-          />
+          chapterFilter === 'all' ? (
+            <EmptyState
+              icon="albums-outline"
+              title="No chapters listed"
+              body="atsu.moe returned this series without a chapter list. Pull it up again in a moment, or check the link."
+            />
+          ) : (
+            <EmptyState
+              icon="funnel-outline"
+              title="Nothing in this filter"
+              body={
+                chapterFilter === 'saved'
+                  ? 'You have no downloaded chapters for this series yet.'
+                  : chapterFilter === 'queued'
+                    ? 'No chapters are queued or downloading right now.'
+                    : 'Every chapter of this series is already on your device.'
+              }
+              action="Show all chapters"
+              onAction={() => setChapterFilter('all')}
+            />
+          )
         }
         ListFooterComponent={
           chapters.length > 0 ? (
             <Text style={styles.footerNote}>
-              Chapters are numbered as atsu.moe lists them · {chapters.length} total
+              {visibleChapters.length} of {chapters.length} chapters shown · numbered as atsu.moe
+              lists them
             </Text>
           ) : undefined
         }
@@ -368,6 +458,13 @@ const styles = StyleSheet.create({
   },
   listHeaderText: { ...type.section, color: colors.text },
   listHeaderMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '600' },
+  sortButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
   footerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   footerCount: { ...type.body, color: colors.text, fontWeight: '600' },
   footerHint: { ...type.tiny, color: colors.textFaint, fontWeight: '500', marginTop: 2 },

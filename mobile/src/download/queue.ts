@@ -268,6 +268,30 @@ export class DownloadQueue {
     this.active.clear();
   }
 
+  /**
+   * Fetch page lists for the next few queued chapters while the current batch is
+   * still downloading. The API round-trip used to sit on the critical path at
+   * every chapter boundary — 100 chapters meant 100 stalls.
+   */
+  private prefetchPages(): void {
+    let budget = Math.max(1, this.config().concurrentChapters) * 2;
+    for (const runtime of this.runtimes.values()) {
+      if (budget <= 0) return;
+      if (runtime.pages || runtime.running) continue;
+      if (runtime.job.status !== 'queued') continue;
+      budget -= 1;
+      const { mangaId, chapterId } = runtime.job;
+      void this.options
+        .loadPages(mangaId, chapterId, runtime.controller.signal)
+        .then((pages) => {
+          if (pages.length > 0) runtime.pages = pages;
+        })
+        .catch(() => {
+          // A failed prefetch is not an error: run() will fetch it again.
+        });
+    }
+  }
+
   /** Kick off as many queued jobs as the concurrency setting allows. */
   private pump(): void {
     const limit = Math.max(1, this.config().concurrentChapters);
@@ -282,6 +306,7 @@ export class DownloadQueue {
         this.pump();
       });
     }
+    this.prefetchPages();
   }
 
   private async run(runtime: Runtime): Promise<void> {
@@ -303,21 +328,58 @@ export class DownloadQueue {
 
       this.patch(job.id, { pagesTotal: pages.length });
 
+      // One listing replaces a stat() per page when resuming.
+      const onDisk = new Map<string, number>();
+      for (const file of await storage.listDir(dir)) {
+        onDisk.set(file.path.split('/').pop() as string, file.size);
+      }
+
       let done = 0;
       let bytes = 0;
+      // Pages already on disk count immediately, so progress starts out honest.
+      for (const page of pages) {
+        const size = onDisk.get(
+          storage.pagePath(job.mangaId, job.chapterId, page.number, extensionFor(page.image)).split('/').pop() as string,
+        );
+        if (size && size > 0) {
+          done += 1;
+          bytes += size;
+        }
+      }
+      if (done > 0) this.patch(job.id, { pagesDone: done, bytes }, false);
+
+      // Smoothed throughput → an ETA the UI can actually show.
+      const sample = { at: Date.now(), pages: done, pps: 0 };
+      const report = () => {
+        const now = Date.now();
+        const elapsed = (now - sample.at) / 1000;
+        if (elapsed >= 0.4) {
+          const instant = (done - sample.pages) / elapsed;
+          sample.pps = sample.pps > 0 ? sample.pps * 0.6 + instant * 0.4 : instant;
+          sample.at = now;
+          sample.pages = done;
+        }
+        const remaining = Math.max(0, pages.length - done);
+        this.patch(
+          job.id,
+          {
+            pagesDone: done,
+            bytes,
+            pagesPerSecond: sample.pps > 0.01 ? Number(sample.pps.toFixed(2)) : null,
+            etaSeconds: sample.pps > 0.01 ? Math.round(remaining / sample.pps) : null,
+          },
+          false,
+        );
+      };
 
       await pool(pages, Math.max(1, config.concurrentImages), async (page) => {
         if (signal.aborted) throw new Error('canceled');
 
         const path = storage.pagePath(job.mangaId, job.chapterId, page.number, extensionFor(page.image));
+        const name = path.split('/').pop() as string;
 
-        const existing = await storage.size(path);
-        if (existing > 0) {
-          done += 1;
-          bytes += existing;
-          this.patch(job.id, { pagesDone: done, bytes }, false);
-          return;
-        }
+        // Already counted above.
+        if ((onDisk.get(name) ?? 0) > 0) return;
 
         let lastError: unknown = null;
         for (let attempt = 0; attempt < Math.max(1, config.maxRetries); attempt += 1) {
@@ -326,7 +388,7 @@ export class DownloadQueue {
             const written = await storage.downloadToFile(pageImageUrl(page), path, { signal });
             done += 1;
             bytes += written;
-            this.patch(job.id, { pagesDone: done, bytes }, false);
+            report();
             return;
           } catch (error) {
             lastError = error;
@@ -373,13 +435,15 @@ export class DownloadQueue {
     const files = await storage.listDir(dir);
     if (files.length === 0) throw new Error('No pages on disk to package');
 
-    const entries: PageEntry[] = [];
-    for (const file of files) {
-      entries.push({
+    // Reading a 40-page chapter one file at a time was the tail stall that made
+    // the last page of every chapter feel like a hang.
+    const entries: PageEntry[] = new Array(files.length);
+    await pool(files, 6, async (file, index) => {
+      entries[index] = {
         name: file.path.split('/').pop() as string,
         bytes: await storage.readBytes(file.path),
-      });
-    }
+      };
+    });
 
     const chapterNumber = formatChapterNumber(job.chapterNumber);
     const extension = job.format === 'cbz' ? 'cbz' : 'pdf';

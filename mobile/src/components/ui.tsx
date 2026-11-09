@@ -183,7 +183,7 @@ export function Chip({
 }) {
   const tones: Record<string, { bg: string; fg: string }> = {
     default: { bg: colors.input, fg: colors.textDim },
-    accent: { bg: colors.accentSoft, fg: colors.accent },
+    accent: { bg: colors.accentSoft, fg: colors.accentText },
     success: { bg: colors.successSoft, fg: colors.success },
     warning: { bg: colors.warningSoft, fg: colors.warning },
     error: { bg: colors.errorSoft, fg: colors.error },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionHeaderText: { ...type.section, color: colors.text },
-  sectionAction: { ...type.small, color: colors.accent, fontWeight: '700' },
+  sectionAction: { ...type.small, color: colors.accentText, fontWeight: '600' },
   empty: {
     alignItems: 'center',
     paddingVertical: spacing.xxxl,

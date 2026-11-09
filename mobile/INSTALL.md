@@ -63,13 +63,20 @@ Search · Shelf · Settings**.
 2. On the series page, tap chapters to select them, or use a shortcut: **All**, **Unread**,
    **Latest 5**, **None**. To type a range instead, put `all`, `1-10` or `1,3,5-7` in the
    range box and tap **Apply**.
-3. Pick **CBZ** (default, best), **PDF**, or **Images** from the format chips.
+3. Pick **CBZ** (default, best), **PDF**, or **Images** from the format chips, and use the
+   chapter filters — **All**, **Not downloaded**, **Offline**, **In queue** — to see just what
+   you still need. The arrow next to *Chapters* flips between oldest-first and newest-first.
 4. Tap **Download N** — you land on **Shelf → Downloads** and can watch pages land, pause,
    resume, retry, or share.
 5. When a chapter finishes, the row shows **Saved**: the share icon opens Android's share
    sheet (choose *Files* to put the `.cbz` anywhere, or *Drive*), and the play button opens it
    in the built-in reader. Reading position is remembered, and **Jump back in** on Home puts
    it one tap away.
+
+A whole back catalogue is two taps: press **Missing N** (every chapter not yet on the phone),
+then **Download N**. Downloads run 4 chapters × 8 images at a time by default and show a live
+pages-per-second read-out with a time estimate; **Settings → Download speed** has Gentle,
+Balanced and Turbo presets if you want them faster or cooler.
 
 Reader and download behaviour live in **Settings**: *Reading direction* switches between the
 continuous **Vertical** strip (how webtoons are drawn) and **Paged**; *Keep the screen awake*

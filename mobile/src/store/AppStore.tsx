@@ -218,6 +218,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* ------------------------------------------------------------ persistence */
 
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jobsPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jobsRef = useRef<DownloadJob[]>([]);
+  jobsRef.current = state.jobs;
 
   const schedulePersist = useCallback(() => {
     if (persistTimer.current) clearTimeout(persistTimer.current);
@@ -231,6 +234,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }, 500);
   }, []);
 
+  /**
+   * Progress-only job updates are persisted lazily.
+   *
+   * Writing the whole queue (100 chapters ≈ 40 KB of JSON) every half second
+   * competed with the downloads for the JS thread. Status changes still persist
+   * immediately; per-page counters now land on disk every couple of seconds,
+   * which is plenty because a resume is reconstructed from the files on disk.
+   */
+  const schedulePersistJobs = useCallback(() => {
+    if (jobsPersistTimer.current) clearTimeout(jobsPersistTimer.current);
+    jobsPersistTimer.current = setTimeout(() => {
+      void AsyncStorage.setItem(KEYS.jobs, JSON.stringify(jobsRef.current));
+    }, 2500);
+  }, []);
+
+
   const flushJobs = useCallback(() => {
     if (jobFlushTimer.current) {
       clearTimeout(jobFlushTimer.current);
@@ -240,6 +259,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const updates = [...pendingJobs.current.values()];
     pendingJobs.current.clear();
+    const statusChanged = updates.some(
+      (job) => appliedStatus.current.get(job.id) !== job.status,
+    );
     for (const job of updates) appliedStatus.current.set(job.id, job.status);
 
     setState((prev) => {
@@ -247,8 +269,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       for (const job of updates) byId.set(job.id, job);
       return { ...prev, jobs: [...byId.values()] };
     });
-    schedulePersist();
-  }, [schedulePersist]);
+
+    if (statusChanged) schedulePersist();
+    else schedulePersistJobs();
+  }, [schedulePersist, schedulePersistJobs]);
 
   const queueJobUpdate = useCallback(
     (job: DownloadJob) => {

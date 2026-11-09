@@ -162,6 +162,67 @@ describe('Atsu Mobile app', () => {
     expect(screen.getAllByText('Static Bloom').length).toBeGreaterThan(0);
   });
 
+  it('filters chapters by what is already downloaded', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Download 1'));
+    });
+    await waitFor(
+      () => {
+        expect(screen.getAllByText('Saved').length).toBeGreaterThan(0);
+      },
+      { timeout: 8000 },
+    );
+
+    // Back to the series page via the library segment.
+    await act(async () => {
+      fireEvent.press(screen.getByText('Library'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('The Lantern Courier'));
+    });
+    await screen.findByText('Offline 1');
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Offline 1'));
+    });
+
+    expect(screen.getByText('1 of 12 chapters shown · numbered as atsu.moe lists them')).toBeTruthy();
+    expect(screen.getByText('Chapter 1 · The first delivery')).toBeTruthy();
+  });
+
+  it('selects every chapter that is not downloaded yet', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Missing 12'));
+    });
+
+    expect(screen.getByText('Download 12')).toBeTruthy();
+  });
+
+  it('applies the turbo speed preset', async () => {
+    await renderApp();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Settings'));
+    });
+    await screen.findByText('Download speed');
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Turbo'));
+    });
+
+    expect(screen.getByText(/Peak parallelism is/)).toBeTruthy();
+    expect(screen.getByText(/72 connections/)).toBeTruthy();
+  });
+
   it('exposes the upgraded settings: reader, downloads, storage and about', async () => {
     await renderApp();
 

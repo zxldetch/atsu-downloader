@@ -123,6 +123,7 @@ export function TabBar() {
 
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+      {/* atsu's bar is icon-only: filled and white when active, outline and grey otherwise. */}
       {TABS.map((tab) => {
         const active = tab.key === activeTab;
         return (
@@ -136,10 +137,9 @@ export function TabBar() {
           >
             <Icon
               name={active ? tab.iconActive : tab.icon}
-              size={22}
-              color={active ? colors.accent : colors.textFaint}
+              size={24}
+              color={active ? colors.text : colors.textFaint}
             />
-            <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
           </Pressable>
         );
       })}
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   brandRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3 },
-  brandMark: { ...type.brand, color: colors.text },
+  brandMark: { ...type.brand, color: colors.text, fontSize: 17, letterSpacing: 3.2 },
   brandDot: {
     width: 5,
     height: 5,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     marginLeft: -6,
   },
-  title: { ...type.title, color: colors.text },
+  title: { ...type.title, color: colors.text, fontSize: 19 },
   subtitle: { ...type.small, color: colors.textFaint, marginTop: 2, fontWeight: '400' },
   headerActions: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
   body: { flex: 1 },
@@ -283,13 +283,9 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
     backgroundColor: colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
   },
-  tab: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 2 },
-  tabLabel: { ...type.tiny, color: colors.textFaint, fontSize: 10, fontWeight: '600' },
-  tabLabelActive: { color: colors.accent },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 2 },
 });

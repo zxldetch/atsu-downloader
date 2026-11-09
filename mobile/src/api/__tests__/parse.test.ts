@@ -2,6 +2,8 @@ import {
   chapterLabel,
   formatBytes,
   formatChapterNumber,
+  formatEta,
+  formatSpeed,
   looksLikeMangaTarget,
   parseChapterSelection,
   parseMangaId,
@@ -81,6 +83,29 @@ describe('parseChapterSelection', () => {
 
   it('de-duplicates overlapping selections', () => {
     expect(parseChapterSelection('1-4,2-6', 12)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+});
+
+describe('formatEta', () => {
+  it('renders seconds, minutes and hours', () => {
+    expect(formatEta(45)).toBe('45s left');
+    expect(formatEta(180)).toBe('3m left');
+    expect(formatEta(4320)).toBe('1h 12m left');
+    expect(formatEta(7200)).toBe('2h left');
+  });
+
+  it('stays quiet when there is no estimate', () => {
+    expect(formatEta(null)).toBe('');
+    expect(formatEta(0)).toBe('');
+    expect(formatEta(undefined)).toBe('');
+  });
+});
+
+describe('formatSpeed', () => {
+  it('keeps one decimal below ten pages a second', () => {
+    expect(formatSpeed(2.44)).toBe('2.4 pages/s');
+    expect(formatSpeed(12.6)).toBe('13 pages/s');
+    expect(formatSpeed(null)).toBe('');
   });
 });
 

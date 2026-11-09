@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
+import { formatEta, formatSpeed } from '../api/parse';
 import { JobRow, SeriesCard } from '../components/cards';
 import { Banner, Button, Chip, EmptyState, Segmented } from '../components/ui';
 import { confirmAsync } from '../lib/confirm';
@@ -30,6 +31,17 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
     () => jobs.filter((job) => ['queued', 'downloading', 'paused'].includes(job.status)).length,
     [jobs],
   );
+
+  /** Aggregate throughput across every chapter downloading right now. */
+  const throughput = useMemo(() => {
+    const running = jobs.filter((job) => job.status === 'downloading');
+    const pps = running.reduce((sum, job) => sum + (job.pagesPerSecond ?? 0), 0);
+    const remaining = running.reduce(
+      (sum, job) => sum + Math.max(0, job.pagesTotal - job.pagesDone),
+      0,
+    );
+    return { pps, eta: pps > 0.01 ? remaining / pps : null, running: running.length };
+  }, [jobs]);
 
   const visibleLibrary = useMemo(() => {
     const entries = [...library].sort((a, b) => {
@@ -201,15 +213,24 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
           )}
           ListHeaderComponent={
             downloads.length > 0 ? (
-              <View style={styles.queueBar}>
-                <Button label="Pause all" size="sm" icon="pause" onPress={pauseAll} />
-                <Button label="Resume all" size="sm" icon="play" onPress={resumeAll} />
-                <Button
-                  label="Clear finished"
-                  size="sm"
-                  variant="ghost"
-                  onPress={clearFinished}
-                />
+              <View>
+                <View style={styles.queueBar}>
+                  <Button label="Pause all" size="sm" icon="pause" onPress={pauseAll} />
+                  <Button label="Resume all" size="sm" icon="play" onPress={resumeAll} />
+                  <Button
+                    label="Clear finished"
+                    size="sm"
+                    variant="ghost"
+                    onPress={clearFinished}
+                  />
+                </View>
+                {throughput.running > 0 ? (
+                  <Text style={styles.throughput}>
+                    {throughput.running} chapter{throughput.running === 1 ? '' : 's'} downloading
+                    {formatSpeed(throughput.pps) ? ` · ${formatSpeed(throughput.pps)}` : ''}
+                    {formatEta(throughput.eta) ? ` · about ${formatEta(throughput.eta)}` : ''}
+                  </Text>
+                ) : null}
               </View>
             ) : undefined
           }
@@ -246,6 +267,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     paddingTop: spacing.xl,
+  },
+  throughput: {
+    ...type.tiny,
+    color: colors.accent,
+    fontWeight: '600',
+    paddingBottom: spacing.sm,
   },
   queueBar: {
     flexDirection: 'row',

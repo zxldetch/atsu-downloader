@@ -58,6 +58,10 @@ export interface DownloadJob {
   bytes: number;
   outputPath: string | null;
   error: string | null;
+  /** Smoothed page throughput while a chapter is downloading. */
+  pagesPerSecond?: number | null;
+  /** Remaining time estimate, in seconds. */
+  etaSeconds?: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -112,10 +116,13 @@ export interface Config {
 export const DEFAULT_CONFIG: Config = {
   downloadFormat: 'cbz',
   keepImages: false,
-  concurrentChapters: 2,
-  concurrentImages: 4,
+  // A 100-chapter binge is the normal case, not the exception: the old 2/4
+  // defaults turned one into an overnight job. 4 chapters x 8 images keeps a
+  // mid-range phone saturated without starving the reader.
+  concurrentChapters: 4,
+  concurrentImages: 8,
   maxRetries: 3,
-  retryDelay: 2,
+  retryDelay: 1,
   demoMode: process.env.EXPO_PUBLIC_DEMO === '1',
   readerMode: 'vertical',
   keepScreenAwake: true,

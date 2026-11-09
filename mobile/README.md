@@ -34,21 +34,45 @@ models.py            → src/types.ts
 
 ## Design
 
-The mobile app follows atsu.moe's own visual language rather than the desktop GUI's
-blue-on-grey: a near-black page (`#0A0A0B`), flat cards that sit one shade above it, hairline
-separators instead of borders, a single violet accent (`#7C5CFA`), the `ATSU` wordmark, cover
-art at a 2:3 ratio, and a four-tab bar — **Home · Search · Shelf · Settings**.
+The palette is sampled from atsu.moe itself, not eyeballed: the page is a mid-dark neutral
+(`#1D1F20`, the single most common pixel on the site), cards and rows sit one step above it
+(`#212325`), borders are `#2F3133`, and the only saturated colour is the violet of the site's
+primary button (`#7667C2`, with `#A196E0` for small purple text where contrast demands it).
+Covers are 2:3 with 8-10pt radii, section headers are sentence case, the tab bar is
+icon-only (filled and white when active), and "Jump back in" is a row list — thumbnail,
+`Ch. 12 · 34%` in violet, title, right-aligned timestamp — exactly as on the site.
 
 | Screen | What it does |
 |---|---|
-| **Home** | Search pill, *Jump back in* rail (continue reading with progress), live *Downloading* strip, and the whole shelf as a cover grid |
+| **Home** | Search pill, *Jump back in* rows (continue reading with progress), live *Downloading* strip, and the whole shelf as a cover grid |
 | **Search** | Paste one link or several; live filter over your shelf by title, author or synopsis; demo chips when the demo source is on |
 | **Shelf** | *Library* (filter: all / reading / offline, long-press to remove) and *Downloads* (pause all, resume all, clear finished, share finished archives) |
-| **Series** | Cover hero, synopsis, range box, All / Unread / Latest 5 / None shortcuts, format chips, virtualised chapter list, sticky *Download* bar |
+| **Series** | Cover hero, synopsis, range box, All / Missing / Unread / Latest 5 / None shortcuts, format chips, chapter filters (all / not downloaded / offline / in queue), oldest-or-newest sort, virtualised list, sticky *Download* bar |
 | **Reader** | Vertical or paged, page scrubber, tap to hide chrome, next-chapter hand-off, keep-awake, prefetches the next two pages |
 
 Everything visual is in `src/theme.ts` (tokens) and `src/components/ui.tsx` (kit). Icons are
 Ionicons, imported from `@expo/vector-icons/Ionicons` directly so only one font ships.
+
+### Download throughput
+
+100 chapters is the normal case for this app, so the pipeline is tuned for it rather than for
+one chapter at a time:
+
+- **Defaults are 4 chapters × 8 images** (32 parallel page requests) instead of 2 × 4. Settings
+  exposes Gentle / Balanced / Turbo presets (2×4, 4×8, 6×12) plus the raw steppers.
+- **Page lists are prefetched.** The next `2 × concurrentChapters` chapters have their page
+  lists requested while the current batch is still downloading, so the API round-trip is no
+  longer on the critical path at every chapter boundary.
+- **Resuming costs one directory listing**, not a `stat` per page, and the chapter directory is
+  created once per chapter instead of once per page (that was ~40-60 wasted native calls per
+  chapter, thousands across a long queue).
+- **Packaging reads page bytes in parallel** (6 at a time) instead of one file after another —
+  this was the stall that made the last page of every chapter feel like a hang.
+- **The queue is no longer re-serialised to storage on every progress tick.** Status changes
+  still persist immediately; page counters land every 2.5 s, which is enough because a resume is
+  reconstructed from the files on disk.
+- **Retry delay defaults to 1 s** (doubling), so a transient CDN hiccup costs a second, not two.
+- The queue reports live **pages/s and a time estimate** per chapter and in aggregate.
 
 ### Why the first build scrolled badly, and what changed
 

@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { formatRelativeTime } from '../api/parse';
-import { JobRow, RailCard, SeriesCard } from '../components/cards';
+import { formatChapterNumber, formatRelativeTime } from '../api/parse';
+import { ContinueRow, JobRow, SeriesCard } from '../components/cards';
 import { Icon } from '../components/icons';
 import { Banner, EmptyState, SectionHeader } from '../components/ui';
 import { Screen, useNav } from '../navigation';
@@ -19,7 +19,7 @@ export function HomeScreen() {
   const { width } = useWindowDimensions();
 
   const cardWidth = Math.max(120, (width - GUTTER * 2 - GAP) / 2);
-  const railWidth = Math.min(132, Math.max(104, width * 0.29));
+
 
   const activeJobs = useMemo(
     () => jobs.filter((job) => ['queued', 'downloading', 'paused'].includes(job.status)),
@@ -55,12 +55,13 @@ export function HomeScreen() {
   const gotoSearch = useCallback(() => nav.go('search'), [nav]);
   const gotoDownloads = useCallback(() => nav.go('shelf'), [nav]);
 
-  const railMeta = useCallback((entry: LibraryEntry) => {
-    if (entry.reading) {
-      return `Page ${entry.reading.page}/${entry.reading.total}`;
-    }
-    const offline = Object.keys(entry.chapters).length;
-    return offline > 0 ? `${offline} offline` : `${entry.chapterCount} chapters`;
+  /** atsu puts the chapter + percentage above the title, timestamp on the right. */
+  const continueLabel = useCallback((entry: LibraryEntry) => {
+    const reading = entry.reading;
+    if (!reading) return `${entry.chapterCount} chapters`;
+    const number = reading.chapterId.match(/(?:ch|chapter)[-_]?([\d.]+)/i)?.[1];
+    const percent = Math.round((reading.page / Math.max(1, reading.total)) * 100);
+    return `Ch. ${number ? formatChapterNumber(Number(number)) : '?'} · ${percent}%`;
   }, []);
 
   return (
@@ -68,26 +69,37 @@ export function HomeScreen() {
       brand
       showTabs
       right={
-        <Pressable
-          onPress={gotoDownloads}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel={
-            activeJobs.length > 0 ? `${activeJobs.length} downloads in progress` : 'Downloads'
-          }
-          style={({ pressed }) => [styles.queueButton, pressed && { opacity: 0.6 }]}
-        >
-          <Icon
-            name={activeJobs.length > 0 ? 'arrow-down-circle' : 'arrow-down-circle-outline'}
-            size={23}
-            color={activeJobs.length > 0 ? colors.accent : colors.text}
-          />
-          {activeJobs.length > 0 ? (
-            <View style={styles.queueBadge}>
-              <Text style={styles.queueBadgeText}>{activeJobs.length}</Text>
-            </View>
-          ) : null}
-        </Pressable>
+        <>
+          <Pressable
+            onPress={gotoSearch}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Open search"
+            style={({ pressed }) => [styles.queueButton, pressed && { opacity: 0.6 }]}
+          >
+            <Icon name="search" size={22} color={colors.text} />
+          </Pressable>
+          <Pressable
+            onPress={gotoDownloads}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={
+              activeJobs.length > 0 ? `${activeJobs.length} downloads in progress` : 'Downloads'
+            }
+            style={({ pressed }) => [styles.queueButton, pressed && { opacity: 0.6 }]}
+          >
+            <Icon
+              name={activeJobs.length > 0 ? 'arrow-down-circle' : 'arrow-down-circle-outline'}
+              size={23}
+              color={activeJobs.length > 0 ? colors.accent : colors.text}
+            />
+            {activeJobs.length > 0 ? (
+              <View style={styles.queueBadge}>
+                <Text style={styles.queueBadgeText}>{activeJobs.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </>
       }
     >
       <FlatList
@@ -128,32 +140,22 @@ export function HomeScreen() {
                   action="Shelf"
                   onAction={() => nav.go('shelf')}
                 />
-                <FlatList
-                  horizontal
-                  data={continueReading}
-                  keyExtractor={(entry) => entry.mangaId}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.rail}
-                  initialNumToRender={4}
-                  maxToRenderPerBatch={4}
-                  windowSize={3}
-                  removeClippedSubviews
-                  renderItem={({ item }) => (
-                    <RailCard
-                      mangaId={item.mangaId}
-                      title={item.title}
-                      coverUrl={item.coverUrl}
-                      meta={railMeta(item)}
-                      width={railWidth}
-                      progress={
-                        item.reading
-                          ? { value: item.reading.page, total: Math.max(1, item.reading.total) }
-                          : undefined
-                      }
-                      onPress={openReader}
-                    />
-                  )}
-                />
+                {continueReading.slice(0, 4).map((entry) => (
+                  <ContinueRow
+                    key={entry.mangaId}
+                    mangaId={entry.mangaId}
+                    title={entry.title}
+                    coverUrl={entry.coverUrl}
+                    label={continueLabel(entry)}
+                    time={formatRelativeTime(entry.reading?.updatedAt ?? entry.addedAt)}
+                    progress={
+                      entry.reading
+                        ? { value: entry.reading.page, total: Math.max(1, entry.reading.total) }
+                        : undefined
+                    }
+                    onPress={openReader}
+                  />
+                ))}
               </>
             ) : null}
 

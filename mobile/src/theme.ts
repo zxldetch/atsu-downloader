@@ -1,40 +1,38 @@
-/**
- * Design tokens.
- *
- * The palette follows atsu.moe itself: a near-black page, cards barely lifted
- * off it, a single violet accent, and type that leans on weight and spacing
- * instead of borders and shadows. Flat surfaces matter for more than looks —
- * on Android every `elevation` on a list row costs a render pass, which is the
- * main reason the first build scrolled badly.
- */
-
 export const colors = {
-  /** Page background — atsu's near-black, not pure #000 (it smears on OLED scroll). */
-  bg: '#0A0A0B',
-  /** Cards, rows, the tab bar. */
-  card: '#141416',
-  /** Inputs, chips, anything that must read as "recessed but tappable". */
-  input: '#1E1E22',
-  /** Hover/pressed surface and cover placeholders. */
-  inputStrong: '#26262C',
-  border: '#232329',
-  borderStrong: '#32323A',
-  text: '#F4F4F6',
-  textDim: '#9A9AA4',
-  textFaint: '#6B6B76',
-  /** atsu's violet. */
-  accent: '#7C5CFA',
-  accentDim: '#6544E0',
-  accentSoft: 'rgba(124, 92, 250, 0.16)',
-  accentLine: 'rgba(124, 92, 250, 0.42)',
-  success: '#3ED17D',
-  successSoft: 'rgba(62, 209, 125, 0.14)',
-  warning: '#E8B14A',
-  warningSoft: 'rgba(232, 177, 74, 0.14)',
-  error: '#F2555A',
-  errorSoft: 'rgba(242, 85, 90, 0.14)',
+  /**
+   * Sampled from atsu.moe itself rather than eyeballed: the page is a mid-dark
+   * neutral (#1D1F20, the single most common pixel on the site), cards sit one
+   * step above it, and the only saturated colour is the violet of the "Install"
+   * button. That is why this build reads much closer to the site than the
+   * earlier near-black GitHub palette.
+   */
+  bg: '#1D1F20',
+  /** Cards, rows, the tab bar — measured #212325. */
+  card: '#212325',
+  /** Chips, inputs, recessed-but-tappable surfaces. */
+  input: '#2A2C2E',
+  /** Pressed states, cover placeholders, progress tracks. */
+  inputStrong: '#303234',
+  border: '#2F3133',
+  borderStrong: '#3C3F42',
+  text: '#F7F7F8',
+  textDim: '#A6A9AB',
+  textFaint: '#7C7F81',
+  /** The atsu violet (#7667C2 on the site's primary button). */
+  accent: '#7667C2',
+  accentDim: '#6558A8',
+  accentSoft: 'rgba(118, 103, 194, 0.20)',
+  accentLine: 'rgba(118, 103, 194, 0.48)',
+  /** A lighter tint for small text on dark, where #7667C2 loses contrast. */
+  accentText: '#A196E0',
+  success: '#57B87E',
+  successSoft: 'rgba(87, 184, 126, 0.16)',
+  warning: '#D9A441',
+  warningSoft: 'rgba(217, 164, 65, 0.16)',
+  error: '#E05A5F',
+  errorSoft: 'rgba(224, 90, 95, 0.16)',
   onAccent: '#FFFFFF',
-  overlay: 'rgba(4, 4, 6, 0.78)',
+  overlay: 'rgba(20, 22, 23, 0.86)',
 } as const;
 
 export const spacing = {
@@ -48,11 +46,11 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  xs: 6,
+  xs: 5,
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 22,
+  md: 10,
+  lg: 12,
+  xl: 16,
   pill: 999,
 } as const;
 

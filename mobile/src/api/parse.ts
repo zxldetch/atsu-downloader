@@ -110,6 +110,22 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
 
+/** "45s left" / "3m left" / "1h 12m left" — '' when there is nothing to say. */
+export function formatEta(seconds: number | null | undefined): string {
+  if (!seconds || !Number.isFinite(seconds) || seconds <= 0) return '';
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))}s left`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m left`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  return minutes > 0 ? `${hours}h ${minutes}m left` : `${hours}h left`;
+}
+
+/** "2.4 pages/s" for the live queue read-out. */
+export function formatSpeed(pagesPerSecond: number | null | undefined): string {
+  if (!pagesPerSecond || !Number.isFinite(pagesPerSecond) || pagesPerSecond <= 0) return '';
+  return `${pagesPerSecond < 10 ? pagesPerSecond.toFixed(1) : Math.round(pagesPerSecond)} pages/s`;
+}
+
 export function formatRelativeTime(timestamp: number): string {
   const seconds = Math.max(1, Math.round((Date.now() - timestamp) / 1000));
   if (seconds < 60) return 'just now';
