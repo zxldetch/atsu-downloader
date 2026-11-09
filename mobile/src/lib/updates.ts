@@ -64,7 +64,9 @@ export async function checkForUpdate(timeoutMs = 8000): Promise<UpdateCheck> {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(VERSION_URL, {
+    // GitHub serves release downloads through a CDN; the timestamp keeps a
+    // fresh publish from being hidden behind a cached copy.
+    const response = await fetch(`${VERSION_URL}?ts=${Date.now()}`, {
       signal: controller.signal,
       headers: { 'Cache-Control': 'no-cache' },
     });
