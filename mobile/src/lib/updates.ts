@@ -27,6 +27,8 @@ export interface RemoteVersion {
   installUrl: string;
   notes?: string;
   publishedAt?: string;
+  /** Size of the APK, so the download is not a surprise (and a truncated one is visible). */
+  sizeBytes?: number;
 }
 
 export interface UpdateCheck {

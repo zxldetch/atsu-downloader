@@ -241,6 +241,16 @@ rounded shape, and there is no full-width translucent band (that rectangle, with
 its soft edge, was reading as a drop shadow). The slider has a `dark` tone so it
 keeps the reader's palette instead of following the app theme.
 
+### Packaging
+
+The release APK ships arm64-v8a and armeabi-v7a only (`reactNativeArchitectures`
+in the generated `android/gradle.properties`, set by the workflow). x86/x86_64
+libraries exist for emulators and made the download far larger than a phone
+needs — and large downloads are what break, since Android's installer reports a
+truncated APK as *"the parser did not find any certificates"*. CI asserts the
+packaged ABIs after assembling and publishes `atsu-mobile.apk.sha256` alongside
+the APK, with the size and hash in `version.json`.
+
 ### Updates
 
 Every build is signed with the committed key in `mobile/keys/atsu-offline.keystore`

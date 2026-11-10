@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 31 · install over the old app, nothing is lost.*
+*Build 32 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -58,6 +58,11 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **The arrows move chapters.** Left/right always land on the first page of the
   neighbouring chapter (the label tells you which one). Page turns are the swipe,
   the page bar or the scrubber.
+- **Dark grey icon.** The A and its slashes now sit on a dark grey plate instead
+  of the pale one, with the mark repainted near-white so it still reads.
+- **Smaller download.** The APK no longer carries the emulator-only x86 libraries,
+  and the release publishes a sha256 next to it so a cut-short download is easy
+  to spot.
 - **Shelf → On device.** Every downloaded chapter in one flat list — series,
   chapter, pages, size, and where you stopped. No connection needed. Tap to read,
   long-press to delete.

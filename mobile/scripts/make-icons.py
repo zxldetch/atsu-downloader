@@ -2,9 +2,12 @@
 """Draw the Atsu Offline icon set.
 
 The artwork is `assets/logo-source.png` — a dark "A" with two violet slashes,
-supplied as a transparent PNG. It goes on a light lavender rounded-square plate so
-the icon is a shape of its own instead of loose glyphs on a transparent canvas
-(dark artwork vanishes on a phone's dark wallpaper without one).
+supplied as a transparent PNG. It goes on a **dark grey** rounded-square plate, so
+the icon reads as a shape of its own rather than a floating glyph.
+
+The supplied art is dark, which would vanish on a dark plate, so the mark is
+recoloured on the way in: the ink becomes near-white and only the slashes keep
+their violet (see `recolour_mark`). The plate stays dark at the user's request.
 
 If the source file is missing, a drawn wifi-fan mark is used instead, so the
 script still produces something sensible.
@@ -25,10 +28,14 @@ HERE = pathlib.Path(__file__).resolve().parent.parent
 ASSETS = HERE / "assets"
 
 INK = (13, 14, 18)            # #0D0E12 — the app's canvas
-PLATE_TOP = (248, 246, 255)   # #F8F6FF — lavender-white
-PLATE_BOTTOM = (222, 214, 251)  # #DED6FB
-PLATE_RIM = (124, 107, 224)   # #7C6BE0 — the logo's own violet
+PLATE_TOP = (62, 65, 72)      # #3E4148 — dark grey, the user's choice
+PLATE_BOTTOM = (24, 25, 30)   # #18191E
+PLATE_RIM = (255, 255, 255)   # a hairline; only the alpha is used
 SLASH = (36, 30, 72)          # deep violet ink, for the fallback mark
+
+# The mark, repainted for a dark plate.
+MARK_LIGHT = (242, 243, 247)  # the A, near-white
+MARK_ACCENT = (169, 139, 255)  # #A98BFF — the slashes, brightened
 
 LOGO = ASSETS / "logo-source.png"
 WHITE = (255, 255, 255)
@@ -62,7 +69,7 @@ def plate(size: int, inset_ratio: float = 0.0, radius_ratio: float = 0.29) -> Im
     ImageDraw.Draw(ring).rounded_rectangle(
         [(inset + 2, inset + 2), (size - inset - 3, size - inset - 3)],
         radius,
-        outline=PLATE_RIM + (60,),
+        outline=PLATE_RIM + (26,),
         width=3,
     )
     return Image.alpha_composite(tile, ring)
@@ -116,6 +123,31 @@ def mark(size: int, fill: int, invert_dot: bool = False) -> Image.Image:
     return layer
 
 
+def recolour_mark(image: Image.Image) -> Image.Image:
+    """Repaint the supplied art for a dark plate.
+
+    Dark ink on a dark plate is an invisible icon, so the near-black "A" becomes
+    near-white and the two slashes stay violet (a touch brighter than the original
+    so they still read at 48px). Only the colour changes; the alpha channel — and
+    therefore every antialiased edge — is carried straight through.
+    """
+    out = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    source = image.load()
+    target = out.load()
+    for y in range(image.height):
+        for x in range(image.width):
+            r, g, b, a = source[x, y]
+            if a == 0:
+                continue
+            # Violet pixels have far more blue than red; ink has almost none.
+            violet = min(1.0, max(0.0, (b - r) / 120.0))
+            colour = tuple(
+                int(MARK_LIGHT[i] + (MARK_ACCENT[i] - MARK_LIGHT[i]) * violet) for i in range(3)
+            )
+            target[x, y] = colour + (a,)
+    return out
+
+
 def artwork(size: int, share: float) -> Image.Image:
     """The supplied logo, trimmed to its ink and scaled to `share` of the canvas."""
     if LOGO.exists():
@@ -126,10 +158,11 @@ def artwork(size: int, share: float) -> Image.Image:
             source = source.crop(box)
         target = int(size * share)
         scale = target / max(source.size)
-        return source.resize(
+        scaled = source.resize(
             (max(1, int(source.width * scale)), max(1, int(source.height * scale))),
             Image.LANCZOS,
         )
+        return recolour_mark(scaled)
 
     big = mark(size, fill=44)
     box = big.getbbox()

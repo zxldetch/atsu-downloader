@@ -79,6 +79,26 @@ jobs:
       - name: Generate the native Android project
         run: npx expo prebuild -p android --no-install
 
+      - name: Drop emulator ABIs
+        # x86/x86_64 native libraries only exist for emulators, and they were a
+        # large slice of a 75 MB APK. A phone is arm64-v8a (or, anciently,
+        # armeabi-v7a) — keeping those two makes the download materially smaller,
+        # which matters when a truncated download is the reason an install fails.
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re
+          path = pathlib.Path("android/gradle.properties")
+          text = path.read_text()
+          wanted = "reactNativeArchitectures=armeabi-v7a,arm64-v8a"
+          if "reactNativeArchitectures" in text:
+              text = re.sub(r"^reactNativeArchitectures=.*$", wanted, text, flags=re.M)
+          else:
+              text = text.rstrip("\n") + "\n" + wanted + "\n"
+          path.write_text(text)
+          print([line for line in text.splitlines() if line.startswith("reactNativeArchitectures")])
+          PY
+
       - name: Sign with the app's own keystore
         # Every APK has to carry the *same* signing certificate, or Android refuses
         # to install a new build over the old one and the library on the device is
@@ -206,12 +226,28 @@ jobs:
           grep -qi "$EXPECTED" "$RUNNER_TEMP/certs.txt" \
             || { echo "::error::APK is not signed with the app's stable key"; exit 1; }
 
+      - name: Check the packaged ABIs
+        # If the architecture filter ever stops applying, the APK silently grows
+        # again — so assert what actually ended up inside it.
+        run: |
+          set -euo pipefail
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          LIBS=$(unzip -l "$APK" | awk '{print $4}' | grep -o '^lib/[^/]*/' | sort -u | tr '\n' ' ')
+          echo "packaged ABIs: $LIBS"
+          echo "$LIBS" | grep -q 'lib/arm64-v8a/' \
+            || { echo "::error::the APK has no arm64-v8a libraries"; exit 1; }
+
       - name: Collect the APK
+        # A checksum ships beside the APK. "The parser did not find any certificates"
+        # from Android's installer almost always means the download was cut short,
+        # and a hash is the only way to tell that apart from a bad build.
         run: |
           set -euo pipefail
           mkdir -p artifacts
           cp android/app/build/outputs/apk/release/*.apk artifacts/atsu-mobile.apk
+          ( cd artifacts && sha256sum atsu-mobile.apk > atsu-mobile.apk.sha256 )
           ls -lh artifacts/
+          cat artifacts/atsu-mobile.apk.sha256
 
       - name: Write version.json
         # The app reads this on launch to answer "is there a newer build?".
@@ -230,6 +266,8 @@ jobs:
               "apkUrl": "https://github.com/zxldetch/atsu-downloader/releases/download/mobile-latest/atsu-mobile.apk",
               "installUrl": "https://github.com/zxldetch/atsu-downloader/blob/main/mobile/INSTALL.md",
               "notes": f"CI build {code}",
+              "sizeBytes": pathlib.Path("artifacts/atsu-mobile.apk").stat().st_size,
+              "sha256": pathlib.Path("artifacts/atsu-mobile.apk.sha256").read_text().split()[0],
               "publishedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
           }
           pathlib.Path("artifacts/version.json").write_text(json.dumps(payload, indent=2) + "\n")
@@ -241,6 +279,7 @@ jobs:
           name: atsu-mobile-apk
           path: |
             mobile/artifacts/atsu-mobile.apk
+            mobile/artifacts/atsu-mobile.apk.sha256
             mobile/artifacts/version.json
           if-no-files-found: error
           retention-days: 30
@@ -253,12 +292,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          SIZE=$(stat -c%s artifacts/atsu-mobile.apk)
+          SHA=$(cut -d' ' -f1 artifacts/atsu-mobile.apk.sha256)
           NOTES="Sideloadable Android build from \`${GITHUB_SHA:0:7}\` (run #${{ github.run_number }}).
           Not a store release. Signed with the app's own key, so this installs over the
           previous build and keeps your shelf, settings and downloads.
+
+          **atsu-mobile.apk** — ${SIZE} bytes
+          sha256: \`${SHA}\`
+
+          If Android says *\"The parser did not find any certificates in the installation
+          package\"*, the download was cut short. Check the file is exactly ${SIZE} bytes
+          and re-download it — the APK is signed, but a partial file has no signature
+          block at the end.
+
           Install steps: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/mobile/INSTALL.md"
           if gh release view mobile-latest >/dev/null 2>&1; then
-            gh release upload mobile-latest artifacts/atsu-mobile.apk artifacts/version.json --clobber
+            gh release upload mobile-latest artifacts/atsu-mobile.apk artifacts/version.json \
+              artifacts/atsu-mobile.apk.sha256 --clobber
             gh release edit mobile-latest --title "Atsu Offline — latest APK" --notes "$NOTES"
           else
             gh release create mobile-latest artifacts/atsu-mobile.apk artifacts/version.json \

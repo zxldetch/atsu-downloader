@@ -11,6 +11,7 @@ import { Linking, Pressable, Text, View } from 'react-native';
 
 import { Icon } from './icons';
 import { checkForUpdate, type UpdateCheck } from '../lib/updates';
+import { formatBytes } from '../api/parse';
 import { colors, makeStyles, radius, spacing, type } from '../theme';
 
 export function useUpdateCheck(auto = true) {
@@ -73,7 +74,10 @@ export function UpdateNotice({
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Build {state.update.versionCode} is available</Text>
           <Text style={styles.body} numberOfLines={2}>
-            You are on build {state.current}. Tap to download the APK, then confirm the install.
+            You are on build {state.current}.{' '}
+            {state.update.sizeBytes
+              ? `The APK is ${formatBytes(state.update.sizeBytes)} — let it finish downloading, then confirm the install.`
+              : 'Tap to download the APK, then confirm the install.'}
           </Text>
         </View>
         <Pressable
