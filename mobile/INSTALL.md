@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 35 · install over the old app, nothing is lost.*
+*Build 36 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -58,6 +58,14 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **The arrows move chapters.** Left/right always land on the first page of the
   neighbouring chapter (the label tells you which one). Page turns are the swipe,
   the page bar or the scrubber.
+- **Page width in the vertical reader.** Reader settings has a PAGE WIDTH slider
+  (60–100%): a page can be edge-to-edge, or a narrower column centred on screen.
+  Row heights follow the width, so nothing is cropped or stretched either way.
+- **The series page has one selector row, not two.** Reading is the default — tap
+  a chapter and it opens. Picking chapters for download is now a single **Select**
+  button next to the chapter count, and the filters are chips that say what they
+  count: All · Unread · Downloaded · Queued. ("Downloaded" used to be labelled
+  "Read", which described the button, not the contents.)
 - **Downloaded pages are no longer cropped.** Every offline page was laid out
   with a guessed 0.7 ratio and drawn with `cover`, so a tall page showed only its
   middle. Page dimensions are read from the image header when the page downloads

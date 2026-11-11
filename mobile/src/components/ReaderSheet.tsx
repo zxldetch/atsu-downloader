@@ -25,6 +25,8 @@ export function ReaderSheet({
   onAutoScroll,
   speed,
   onSpeed,
+  pageWidth,
+  onPageWidth,
   keepAwake,
   onKeepAwake,
   onReset,
@@ -39,6 +41,8 @@ export function ReaderSheet({
   onAutoScroll: (value: boolean) => void;
   speed: number;
   onSpeed: (value: number) => void;
+  pageWidth: number;
+  onPageWidth: (value: number) => void;
   keepAwake: boolean;
   onKeepAwake: (value: boolean) => void;
   onReset: () => void;
@@ -101,6 +105,16 @@ export function ReaderSheet({
               );
             })}
           </View>
+
+          <Slider
+            value={(Math.min(1, Math.max(0.6, pageWidth)) - 0.6) / 0.4}
+            steps={5}
+            onChange={(value) => onPageWidth(Number((0.6 + Math.round(value * 5) * 0.08).toFixed(2)))}
+            label="PAGE WIDTH"
+            valueLabel={`${Math.round(Math.min(1, Math.max(0.6, pageWidth)) * 100)}%`}
+            disabled={mode !== 'vertical'}
+            style={{ marginTop: spacing.lg }}
+          />
 
           <View style={styles.divider} />
 

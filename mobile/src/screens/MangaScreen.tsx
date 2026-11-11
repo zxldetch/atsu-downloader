@@ -527,43 +527,82 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 Chapters
                 <Text style={styles.listHeaderCount}>  {visibleChapters.length}</Text>
               </Text>
-              <Pressable
-                onPress={() => setAscending((value) => !value)}
-                accessibilityRole="button"
-                accessibilityLabel="Toggle chapter order"
-                hitSlop={8}
-                style={({ pressed }) => [styles.sortButton, pressed && { opacity: 0.6 }]}
-              >
-                <Icon name={ascending ? 'arrow-up' : 'arrow-down'} size={13} color={colors.textDim} />
-                <Text style={styles.listHeaderMeta}>
-                  {ascending ? 'Oldest first' : 'Newest first'}
-                </Text>
-              </Pressable>
+              <View style={styles.listHeaderActions}>
+                <Pressable
+                  onPress={() => setAscending((value) => !value)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle chapter order"
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.sortButton, pressed && { opacity: 0.6 }]}
+                >
+                  <Icon
+                    name={ascending ? 'arrow-up' : 'arrow-down'}
+                    size={13}
+                    color={colors.textDim}
+                  />
+                  <Text style={styles.listHeaderMeta}>
+                    {ascending ? 'Oldest first' : 'Newest first'}
+                  </Text>
+                </Pressable>
+
+                {/* One control for picking chapters, instead of a full-width mode
+                    switch that made reading and selecting look like two screens. */}
+                <Pressable
+                  onPress={() => {
+                    setRowMode((modeNow) => (modeNow === 'download' ? 'read' : 'download'));
+                    setSelection(new Set());
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: rowMode === 'download' }}
+                  accessibilityLabel={
+                    rowMode === 'download' ? 'Stop selecting chapters' : 'Select chapters to download'
+                  }
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.selectButton,
+                    rowMode === 'download' && styles.selectButtonOn,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Icon
+                    name={rowMode === 'download' ? 'close' : 'checkmark-circle-outline'}
+                    size={15}
+                    color={rowMode === 'download' ? colors.onAccent : colors.textDim}
+                  />
+                  <Text
+                    style={[styles.selectText, rowMode === 'download' && styles.selectTextOn]}
+                  >
+                    {rowMode === 'download' ? 'Done' : 'Select'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
-            <Segmented
-              value={rowMode}
-              onChange={(next) => {
-                setRowMode(next);
-                if (next === 'read') setSelection(new Set());
-              }}
-              options={[
-                { key: 'read', label: 'Read' },
-                { key: 'download', label: 'Download' },
-              ]}
-              style={{ marginTop: spacing.lg }}
-            />
-
+            {/* Filters, not a second mode switch: chips wrap and say what they
+                count. "Downloaded" is downloaded — the old label said "Read",
+                which is what the row does, not what it holds. */}
             <View style={styles.filterRow}>
-              <Segmented
-                value={chapterFilter}
-                onChange={setChapterFilter}
-                options={[
-                  { key: 'all', label: 'All' },
-                  { key: 'missing', label: `Unread ${missingChapters.length}` },
-                  { key: 'saved', label: `Read ${savedIds.size}` },
-                  { key: 'queued', label: `Queue ${queuedIds.size}` },
-                ]}
+              <Chip
+                // The total for this group, not the filtered count: a chip that
+                // renames itself to "All 0" once you filter is a maze.
+                label={`All ${orderedChapters.length}`}
+                active={chapterFilter === 'all'}
+                onPress={() => setChapterFilter('all')}
+              />
+              <Chip
+                label={`Unread ${missingChapters.length}`}
+                active={chapterFilter === 'missing'}
+                onPress={() => setChapterFilter('missing')}
+              />
+              <Chip
+                label={`Downloaded ${savedIds.size}`}
+                active={chapterFilter === 'saved'}
+                onPress={() => setChapterFilter('saved')}
+              />
+              <Chip
+                label={`Queued ${queuedIds.size}`}
+                active={chapterFilter === 'queued'}
+                onPress={() => setChapterFilter('queued')}
               />
             </View>
           </View>
@@ -718,8 +757,27 @@ const styles = makeStyles((colors) => ({
   listHeaderText: { ...type.section, color: colors.text },
   listHeaderCount: { ...type.section, color: colors.textFaint, fontWeight: '600' },
   listHeaderMeta: { ...type.tiny, color: colors.textFaint, fontWeight: '600' },
+  listHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   sortButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  filterRow: { paddingBottom: spacing.md },
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderStrong,
+  },
+  selectButtonOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  selectText: { ...type.tiny, color: colors.textDim, fontWeight: '700' },
+  selectTextOn: { color: colors.onAccent },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
+  },
   toast: {
     position: 'absolute',
     left: spacing.lg,

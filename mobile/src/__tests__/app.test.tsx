@@ -47,10 +47,10 @@ async function openDemoSeries(title = 'The Lantern Courier', subtitle = '12 chap
   await screen.findByText(subtitle, {}, { timeout: 4000 });
 }
 
-/** The chapter list starts in read mode; picking chapters needs download mode. */
+/** The list opens in reading mode; picking chapters needs the Select toggle. */
 async function chooseDownloadMode() {
   await act(async () => {
-    fireEvent.press(screen.getByText('Download'));
+    fireEvent.press(screen.getByLabelText('Select chapters to download'));
   });
 }
 
@@ -81,8 +81,8 @@ describe('Atsu Offline app', () => {
     await openDemoSeries();
 
     expect(screen.getByText('Chapter 1 · The first delivery')).toBeTruthy();
-    // Read mode by default: no download tools, no footer bar.
-    expect(screen.getByText('Read')).toBeTruthy();
+    // Reading by default: tapping a row opens it, and no download tools are shown.
+    expect(screen.getByLabelText('Select chapters to download')).toBeTruthy();
     expect(screen.queryByPlaceholderText('Range · 1-10')).toBeNull();
   });
 
@@ -180,10 +180,7 @@ describe('Atsu Offline app', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('The Lantern Courier'));
     });
-    // Back in read mode, the row itself opens the chapter — no play button.
-    await act(async () => {
-      fireEvent.press(screen.getByText('Read'));
-    });
+    // Reading mode is the default — the row itself opens the chapter.
     await act(async () => {
       fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
     });
@@ -223,9 +220,6 @@ describe('Atsu Offline app', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('The Lantern Courier'));
     });
-    await act(async () => {
-      fireEvent.press(screen.getByText('Read'));
-    });
     await screen.findByText('Chapter 1 · The first delivery');
 
     // Long-press a downloaded chapter on the series page.
@@ -249,6 +243,52 @@ describe('Atsu Offline app', () => {
     ).toHaveLength(0);
     expect(alert).toHaveBeenCalledTimes(1);
     alert.mockRestore();
+  });
+
+  it('offers a page width for the vertical reader', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
+    });
+    await screen.findByText(/Ch\. 1 · 1 \/ \d+/, {}, { timeout: 4000 });
+
+    // Header and footer both open the sheet; either will do.
+    await act(async () => {
+      fireEvent.press(screen.getAllByLabelText('Reader settings')[0]);
+    });
+
+    // The width is a reader setting, not a hidden gesture.
+    expect(screen.getByText('PAGE WIDTH')).toBeTruthy();
+    expect(screen.getByText('100%')).toBeTruthy();
+  });
+
+  it('filters the chapter list with labelled chips, in reading mode', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    // One row of chips, each saying what it counts.
+    expect(screen.getByText('All 12')).toBeTruthy();
+    expect(screen.getByText('Unread 12')).toBeTruthy();
+    expect(screen.getByText('Downloaded 0')).toBeTruthy();
+    expect(screen.getByText('Queued 0')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('Downloaded 0'));
+    });
+    expect(screen.getByText('Nothing in this filter')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('All 12'));
+    });
+    expect(screen.getByText('Chapter 1 · The first delivery')).toBeTruthy();
+
+    // Reading stays the default: a row tap opens the chapter, it does not tick it.
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 2 · Rain, again'));
+    });
+    await screen.findByText(/Ch\. 2 · 1 \/ \d+/, {}, { timeout: 4000 });
   });
 
   it('moves a whole chapter per arrow, not a page', async () => {
@@ -400,10 +440,10 @@ describe('Atsu Offline app', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('The Lantern Courier'));
     });
-    await screen.findByText('Read 1');
+    await screen.findByText('Downloaded 1');
 
     await act(async () => {
-      fireEvent.press(screen.getByText('Read 1'));
+      fireEvent.press(screen.getByText('Downloaded 1'));
     });
 
     expect(screen.getByText('1 of 12 chapters shown · numbered as atsu.moe lists them')).toBeTruthy();

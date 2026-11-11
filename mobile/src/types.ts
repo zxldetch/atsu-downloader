@@ -136,6 +136,11 @@ export interface Config {
   /** Reader layout: continuous vertical strip or page-by-page. */
   readerMode: 'vertical' | 'paged';
   /**
+   * Vertical mode: fraction of the screen width a page occupies (0.6 – 1).
+   * 1 is edge-to-edge; narrower leaves a margin and fits more on screen at once.
+   */
+  readerWidth: number;
+  /**
    * "Infinite mode": next/previous walk into the neighbouring chapter at the
    * edges, and scrolling to the end of a strip loads the next one.
    */
@@ -166,6 +171,7 @@ export const DEFAULT_CONFIG: Config = {
   retryDelay: 1,
   demoMode: process.env.EXPO_PUBLIC_DEMO === '1',
   readerMode: 'vertical',
+  readerWidth: 1,
   autoAdvanceChapters: true,
   autoScroll: false,
   autoScrollSpeed: 4,

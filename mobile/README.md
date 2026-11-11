@@ -233,6 +233,21 @@ series, the chapter label, its page count, format and size, and where you left o
 ("page 3 of 24"). Tap to read, long-press to delete. The Library grid still answers
 "which series"; this answers "*what can I read right now*".
 
+### Reader width
+
+`config.readerWidth` (0.6–1, default 1) is the fraction of the screen a page
+occupies in vertical mode. The reader applies it to the layout maths *and* to the
+cell (`pageWidth`), so row heights stay exact — a narrower column is centred, never
+scaled or cropped. It is exposed as PAGE WIDTH in the reader sheet.
+
+### Series page selectors
+
+Reading is the default mode: a chapter row opens the reader. Download selection is
+a single **Select** toggle in the chapter-list header rather than a full-width mode
+switch, and the chapter filter is a wrap-around chip row (All · Unread · Downloaded
+· Queued). The "All" chip counts the group, not the filtered list, so it cannot
+rename itself to "All 0" mid-session.
+
 ### Page shapes
 
 A downloaded page has no API payload, so its aspect ratio has to come from

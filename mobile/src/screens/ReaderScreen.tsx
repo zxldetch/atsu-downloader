@@ -65,7 +65,7 @@ const PageCell = memo(function PageCell({
   return (
     <Pressable
       onPress={onPress}
-      style={width ? { width, height } : { width: '100%', height }}
+      style={width ? { width, height, alignSelf: 'center' } : { width: '100%', height }}
     >
       <Image
         source={{ uri }}
@@ -330,13 +330,25 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt, chapterId, mangaId, meta?.id]);
 
+  /**
+   * How wide a page is drawn in vertical mode.
+   *
+   * Edge-to-edge is not always right: a wide phone makes a page fill more than a
+   * screen, and a narrow column is easier to read. The setting is honoured for
+   * layout maths *and* for the cell itself, so heights stay exact.
+   */
+  const pageWidth =
+    mode === 'vertical'
+      ? Math.round(width * Math.min(1, Math.max(0.6, config.readerWidth || 1)))
+      : width;
+
   /** Everything in the strip, seams included. */
   const rows = useMemo(() => buildRows(segments), [segments]);
 
   /** Page heights, then the running offsets — exact `getItemLayout` for a mixed strip. */
   const layout = useMemo(() => {
     const heights = rows.map((row) =>
-      row.kind === 'page' ? Math.round(width / pageAspect(row.page.aspect)) : SEAM_HEIGHT,
+      row.kind === 'page' ? Math.round(pageWidth / pageAspect(row.page.aspect)) : SEAM_HEIGHT,
     );
     const offsets: number[] = [];
     let running = 0;
@@ -345,7 +357,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
       running += h;
     }
     return { heights, offsets, total: running };
-  }, [rows, width]);
+  }, [rows, pageWidth, width]);
 
   const current = rows[Math.min(index, rows.length - 1)];
 
@@ -664,7 +676,12 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
         renderItem={({ item }) => {
           if (item.kind === 'seam') {
             return (
-              <View style={[styles.seam, mode === 'paged' && { width }]}>
+              <View
+                style={[
+                  styles.seam,
+                  { width: mode === 'paged' ? width : pageWidth, alignSelf: 'center' },
+                ]}
+              >
                 <View style={styles.seamRule} />
                 <Text style={styles.seamFinished}>{item.finished}</Text>
                 {item.next ? <Text style={styles.seamNext}>{item.next}</Text> : null}
@@ -673,13 +690,13 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
           }
 
           const rowHeight =
-            mode === 'paged' ? height : Math.round(width / pageAspect(item.page.aspect));
+            mode === 'paged' ? height : Math.round(pageWidth / pageAspect(item.page.aspect));
 
           return (
             <PageCell
               uri={item.page.uri}
               recyclingKey={item.page.key}
-              width={mode === 'paged' ? width : undefined}
+              width={mode === 'paged' ? width : pageWidth}
               height={rowHeight}
               // `contain`, never `cover`: the row height already comes from the
               // page's own ratio, so fitting inside it changes nothing when the
@@ -875,6 +892,8 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
             }}
             speed={config.autoScrollSpeed}
             onSpeed={(value) => actions.updateConfig({ autoScrollSpeed: value })}
+            pageWidth={config.readerWidth ?? 1}
+            onPageWidth={(value) => actions.updateConfig({ readerWidth: value })}
             keepAwake={config.keepScreenAwake}
             onKeepAwake={(value) => actions.updateConfig({ keepScreenAwake: value })}
             onReset={() => {
