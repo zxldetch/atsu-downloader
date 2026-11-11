@@ -71,6 +71,8 @@ export interface DownloadJob {
   pagesTotal: number;
   pagesDone: number;
   bytes: number;
+  /** width/height per page, in page order (0 when the header was unreadable). */
+  aspects?: number[];
   outputPath: string | null;
   error: string | null;
   /** Smoothed page throughput while a chapter is downloading. */
@@ -91,6 +93,8 @@ export interface ChapterState {
   savedAs: OutputFormat | null;
   savedPath: string | null;
   bytes: number;
+  /** width/height per page, recorded when the pages were downloaded. */
+  aspects?: number[];
   updatedAt: number;
 }
 

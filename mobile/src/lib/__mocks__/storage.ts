@@ -16,6 +16,8 @@ interface State {
   inFlight: number;
   maxInFlight: number;
   removedDirs: string[];
+  /** Page path -> aspect ratio, so tests can give pages a real shape. */
+  aspects: Map<string, number>;
 }
 
 export const __state: State = {
@@ -26,6 +28,7 @@ export const __state: State = {
   inFlight: 0,
   maxInFlight: 0,
   removedDirs: [],
+  aspects: new Map(),
 };
 
 export function __reset(): void {
@@ -33,6 +36,7 @@ export function __reset(): void {
   __state.downloads.length = 0;
   __state.failures.clear();
   __state.removedDirs.length = 0;
+  __state.aspects.clear();
   __state.delayMs = 2;
   __state.inFlight = 0;
   __state.maxInFlight = 0;
@@ -86,7 +90,7 @@ export async function downloadToFile(
   url: string,
   path: string,
   options: { signal?: AbortSignal } = {},
-): Promise<number> {
+): Promise<{ size: number; aspect: number | null }> {
   if (options.signal?.aborted) throw new Error('canceled');
 
   __state.downloads.push({ url, path });
@@ -113,9 +117,12 @@ export async function downloadToFile(
     throw new Error('simulated network failure');
   }
 
+  // A tiny but real JPEG-ish header is not needed here: the mock pages have no
+  // readable header, which is exactly the "unknown aspect" case the reader
+  // letterboxes instead of cropping.
   const bytes = new Uint8Array([1, 2, 3, 4]);
   __state.files.set(path, bytes);
-  return bytes.byteLength;
+  return { size: bytes.byteLength, aspect: __state.aspects.get(path) ?? null };
 }
 
 export async function listDir(path: string): Promise<{ path: string; size: number }[]> {

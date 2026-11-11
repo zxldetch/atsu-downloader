@@ -233,6 +233,19 @@ series, the chapter label, its page count, format and size, and where you left o
 ("page 3 of 24"). Tap to read, long-press to delete. The Library grid still answers
 "which series"; this answers "*what can I read right now*".
 
+### Page shapes
+
+A downloaded page has no API payload, so its aspect ratio has to come from
+somewhere. `lib/imageSize.ts` reads it out of the image header (WebP VP8/VP8L/VP8X,
+JPEG, PNG, GIF) while the bytes are still in memory in `storage.downloadToFile`,
+and the queue records one ratio per page on the job; the library keeps them on the
+chapter. The reader lays a page out at `width / aspect` and draws it with
+`contain`, so a page can never be cropped — a chapter from an older build is
+measured on first open and remembered (`setChapterAspects`).
+
+Before this, every offline page was guessed at 0.7 and drawn with `cover`: a tall
+webtoon strip showed its middle third, which is what "cut off and unreadable" was.
+
 ### Splash and the highlighted selector
 
 `assets/splash-icon.png` is the mark on transparency, with no plate: Android 12+

@@ -19,6 +19,7 @@ import { Icon } from '../components/icons';
 import { ReaderSheet } from '../components/ReaderSheet';
 import { Slider } from '../components/Slider';
 import { Button } from '../components/ui';
+import { aspectFromBytes } from '../lib/imageSize';
 import {
   buildRows,
   firstPageOf,
@@ -32,6 +33,9 @@ import { useApp } from '../store/AppStore';
 import { colors, makeStyles, spacing, type } from '../theme';
 
 const SEAM_HEIGHT = 148;
+
+/** Clamp for layout maths, with a sane box for a page whose size is unknown. */
+const pageAspect = (aspect: number) => (aspect > 0.1 ? aspect : 0.7);
 
 /**
  * One page.
@@ -164,14 +168,53 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
     ): Promise<{ pages: ReaderPage[]; source: 'offline' | 'network' }> => {
       const dir = storage.chapterDir(mangaId, target.id);
 
+      /**
+       * Pages on disk, with their real aspect ratios.
+       *
+       * A downloaded chapter has no API payload, so earlier builds guessed 0.7
+       * for every page and then drew it with `cover` — tall pages were cropped at
+       * the top and bottom, which is the "cut off, unreadable" a download looked
+       * like. New downloads record the ratio from the image header; a chapter
+       * from an older build is measured here, once, and remembered.
+       */
       const readLocal = async (): Promise<ReaderPage[]> => {
-        const files = await storage.listDir(dir);
-        const pages: ReaderPage[] = [];
-        for (const file of files) {
+        const files = (await storage.listDir(dir)).filter((file) =>
           // Only real images count: an archive sitting in the same folder used to
           // be handed to <Image> as if it were a page.
-          if (!/\.(webp|jpe?g|png|gif|avif)$/i.test(file.path)) continue;
-          pages.push({ key: file.path, uri: await storage.uriFor(file.path), aspect: 0.7 });
+          /\.(webp|jpe?g|png|gif|avif)$/i.test(file.path),
+        );
+        if (files.length === 0) return [];
+
+        const remembered = entry?.chapters?.[target.id]?.aspects;
+        const aspects = files.map((_, index) =>
+          remembered?.[index] && remembered[index] > 0.1 ? remembered[index] : 0,
+        );
+
+        let measured = false;
+        if (aspects.some((aspect) => aspect === 0)) {
+          for (let index = 0; index < files.length; index += 1) {
+            if (aspects[index] !== 0) continue;
+            try {
+              aspects[index] = aspectFromBytes(await storage.readBytes(files[index].path)) ?? 0;
+            } catch {
+              aspects[index] = 0;
+            }
+            measured = true;
+          }
+        }
+
+        if (measured && aspects.some((aspect) => aspect > 0.1)) {
+          // Written once so the next open skips the measurement entirely.
+          actions.setChapterAspects(mangaId, target.id, aspects);
+        }
+
+        const pages: ReaderPage[] = [];
+        for (let index = 0; index < files.length; index += 1) {
+          pages.push({
+            key: files[index].path,
+            uri: await storage.uriFor(files[index].path),
+            aspect: aspects[index],
+          });
         }
         return pages;
       };
@@ -293,7 +336,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
   /** Page heights, then the running offsets — exact `getItemLayout` for a mixed strip. */
   const layout = useMemo(() => {
     const heights = rows.map((row) =>
-      row.kind === 'page' ? Math.round(width / Math.max(0.35, row.page.aspect)) : SEAM_HEIGHT,
+      row.kind === 'page' ? Math.round(width / pageAspect(row.page.aspect)) : SEAM_HEIGHT,
     );
     const offsets: number[] = [];
     let running = 0;
@@ -630,7 +673,7 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
           }
 
           const rowHeight =
-            mode === 'paged' ? height : Math.round(width / Math.max(0.35, item.page.aspect));
+            mode === 'paged' ? height : Math.round(width / pageAspect(item.page.aspect));
 
           return (
             <PageCell
@@ -638,7 +681,11 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
               recyclingKey={item.page.key}
               width={mode === 'paged' ? width : undefined}
               height={rowHeight}
-              fit={mode === 'paged' ? 'contain' : 'cover'}
+              // `contain`, never `cover`: the row height already comes from the
+              // page's own ratio, so fitting inside it changes nothing when the
+              // numbers are right — and when a page's size is unknown it letterboxes
+              // instead of cutting the top and bottom off.
+              fit="contain"
               onPress={toggleChrome}
             />
           );

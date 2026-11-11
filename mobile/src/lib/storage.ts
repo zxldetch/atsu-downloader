@@ -16,6 +16,7 @@ import { Platform } from 'react-native';
 
 import { sanitizeFilename } from '../api/parse';
 import { extensionOf, readArchivePages } from './cbz';
+import { aspectFromBytes } from './imageSize';
 
 const isWeb = Platform.OS === 'web';
 
@@ -234,8 +235,19 @@ export async function listDir(path: string): Promise<{ path: string; size: numbe
     .sort((a, b) => a.path.localeCompare(b.path));
 }
 
+export interface PageDownload {
+  /** Bytes written. */
+  size: number;
+  /**
+   * width / height read from the image header, or null when the format is not
+   * recognised. The reader needs this to lay the page out at its true height —
+   * without it a downloaded page was drawn into a guessed box and cropped.
+   */
+  aspect: number | null;
+}
+
 /**
- * Download `url` into `path`. Returns the number of bytes written.
+ * Download `url` into `path`. Returns the size and the page's aspect ratio.
  *
  * Pages that already exist are skipped by the queue, which is what makes
  * interrupted downloads resumable without any extra bookkeeping.
@@ -244,7 +256,7 @@ export async function downloadToFile(
   url: string,
   path: string,
   options: { headers?: Record<string, string>; signal?: AbortSignal } = {},
-): Promise<number> {
+): Promise<PageDownload> {
   if (isWeb) {
     const response = await fetch(url, { signal: options.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -252,7 +264,7 @@ export async function downloadToFile(
     const bytes = new Uint8Array(buffer);
     memory.set(path, bytes);
     if (url.startsWith('data:')) await sleep(90); // keep demo downloads legible
-    return bytes.byteLength;
+    return { size: bytes.byteLength, aspect: aspectFromBytes(bytes) };
   }
 
   const segments = path.split('/').filter(Boolean);
@@ -264,7 +276,7 @@ export async function downloadToFile(
     const bytes = new Uint8Array(await response.arrayBuffer());
     await writeFile(path, bytes);
     await sleep(90); // keep demo downloads legible
-    return bytes.byteLength;
+    return { size: bytes.byteLength, aspect: aspectFromBytes(bytes) };
   }
 
   const { File, Paths, Directory } = fs();
@@ -290,7 +302,7 @@ export async function downloadToFile(
     const bytes = await downloaded.bytes();
     if (bytes.byteLength === 0) throw new Error('The server sent an empty page');
     await writeFile(path, bytes);
-    return bytes.byteLength;
+    return { size: bytes.byteLength, aspect: aspectFromBytes(bytes) };
   } finally {
     try {
       if (downloaded.exists) downloaded.delete();

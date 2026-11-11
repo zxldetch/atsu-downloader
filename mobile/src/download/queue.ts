@@ -416,6 +416,8 @@ export class DownloadQueue {
        */
       const PASSES = 3;
       let lastFailure: string | null = null;
+      // Page order matters: the reader indexes this by the page it is showing.
+      const aspects = new Array<number>(pages.length).fill(0);
 
       for (let pass = 0; pass < PASSES; pass += 1) {
         const pending = await pendingPages();
@@ -423,6 +425,7 @@ export class DownloadQueue {
 
         const failures: string[] = [];
         await pool(pending, Math.max(1, config.concurrentImages), async (page) => {
+          const pageIndex = pages.indexOf(page);
           if (signal.aborted) throw new Error('canceled');
 
           const path = storage.pagePath(
@@ -438,7 +441,8 @@ export class DownloadQueue {
             try {
               const written = await storage.downloadToFile(pageImageUrl(page), path, { signal });
               done += 1;
-              bytes += written;
+              bytes += written.size;
+              aspects[pageIndex] = written.aspect ?? 0;
               report();
               return;
             } catch (error) {
@@ -479,7 +483,7 @@ export class DownloadQueue {
         );
       }
 
-      this.patch(job.id, { pagesDone: pages.length, bytes });
+      this.patch(job.id, { pagesDone: pages.length, bytes, aspects });
 
       const outputPath = await this.finalize(runtime, pages);
       this.patch(job.id, { status: 'done', outputPath, pagesDone: pages.length });

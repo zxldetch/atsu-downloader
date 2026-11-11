@@ -75,6 +75,8 @@ interface AppActions {
   retryJob: (id: string) => void;
   removeJob: (id: string) => void;
   clearFinishedJobs: () => void;
+  /** Page aspects measured after the fact (chapters downloaded by older builds). */
+  setChapterAspects: (mangaId: string, chapterId: string, aspects: number[]) => void;
   saveReadingProgress: (
     mangaId: string,
     chapterId: string,
@@ -196,6 +198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               savedAs: job.format,
               savedPath: job.outputPath,
               bytes: job.bytes,
+              aspects: job.aspects,
               updatedAt: Date.now(),
             };
             return {
@@ -486,6 +489,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ),
             };
           });
+          schedulePersist();
+        },
+        setChapterAspects: (mangaId, chapterId, aspects) => {
+          setState((prev) => ({
+            ...prev,
+            library: prev.library.map((entry) => {
+              if (entry.mangaId !== mangaId) return entry;
+              const saved = entry.chapters[chapterId];
+              if (!saved || saved.aspects) return entry;
+              return {
+                ...entry,
+                chapters: { ...entry.chapters, [chapterId]: { ...saved, aspects } },
+              };
+            }),
+          }));
           schedulePersist();
         },
         deleteChapter: async (mangaId, chapterId) => {

@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 34 · install over the old app, nothing is lost.*
+*Build 35 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -58,6 +58,11 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **The arrows move chapters.** Left/right always land on the first page of the
   neighbouring chapter (the label tells you which one). Page turns are the swipe,
   the page bar or the scrubber.
+- **Downloaded pages are no longer cropped.** Every offline page was laid out
+  with a guessed 0.7 ratio and drawn with `cover`, so a tall page showed only its
+  middle. Page dimensions are read from the image header when the page downloads
+  (and measured once for chapters you already have), and pages are fitted inside
+  a box that matches their real shape — nothing is cut.
 - **Opening screen.** The splash shows the mark itself — the A with its slashes —
   with no plate behind it. The plate had its own rounded corners and Android masks
   the splash icon again on top, which doubled the cut and read as a polygon. The

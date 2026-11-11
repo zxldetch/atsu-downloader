@@ -188,6 +188,22 @@ describe('DownloadQueue', () => {
     expect(state.files.has('atsu/OaKBx/ch-2/0002.webp')).toBe(true);
   });
 
+  it('records each page aspect, so an offline page is drawn at its true height', async () => {
+    // A tall webtoon strip next to a squarer page: laying these out with one
+    // guessed ratio is what cropped downloaded pages.
+    state.aspects.set('atsu/OaKBx/ch-1/0001.webp', 0.4);
+    state.aspects.set('atsu/OaKBx/ch-1/0002.webp', 0.8);
+    const { queue } = makeQueue(config({ downloadFormat: 'cbz' }));
+
+    queue.enqueue(spec({ format: 'cbz' }));
+    await waitFor(() => queue.list()[0]?.status === 'done');
+
+    const aspects = queue.list()[0].aspects ?? [];
+    expect(aspects[0]).toBeCloseTo(0.4, 5);
+    expect(aspects[1]).toBeCloseTo(0.8, 5);
+    expect(aspects).toHaveLength(5);
+  });
+
   it('skips pages already on disk, which is what makes it resumable', async () => {
     state.files.set('atsu/OaKBx/ch-1/0001.webp', new Uint8Array([9, 9]));
     state.files.set('atsu/OaKBx/ch-1/0002.webp', new Uint8Array([9, 9]));
