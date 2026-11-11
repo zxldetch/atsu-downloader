@@ -233,6 +233,18 @@ series, the chapter label, its page count, format and size, and where you left o
 ("page 3 of 24"). Tap to read, long-press to delete. The Library grid still answers
 "which series"; this answers "*what can I read right now*".
 
+### Splash and the highlighted selector
+
+`assets/splash-icon.png` is the mark on transparency, with no plate: Android 12+
+draws the splash icon inside a system mask, so a plate with its own rounded corners
+was cut twice and read as a polygon. `BootSplash` draws the same PNG, which makes
+the hand-off from the OS splash to the app invisible.
+
+`Segmented` measures each option with `onLayout` and slides a highlight to the
+measured box (`pillX`/`pillW`) instead of dividing the container by the number of
+options — gaps, padding and shrinkable labels made that arithmetic miss its label
+by a couple of pixels, which is exactly what a misaligned tab looks like.
+
 ### Reader motion
 
 Auto-scroll advances the offset by elapsed time on `requestAnimationFrame` instead

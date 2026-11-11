@@ -394,67 +394,57 @@ export function Segmented<T extends string>({
   style?: StyleProp<ViewStyle>;
 }) {
   const index = Math.max(0, options.findIndex((option) => option.key === value));
-  const [width, setWidth] = useState(0);
   const reducedMotion = useReducedMotion();
-  const slide = useRef(new Animated.Value(0)).current;
-  const previous = useRef(index);
 
-  // The selection is one rectangle that slides, rather than a background that
-  // blinks on and off per option.
+  // The highlight is measured from the option it sits under, not calculated from
+  // a slot width: with a gap, padding and a shrinkable label, the arithmetic was
+  // always a pixel or two off — enough to see the rectangle miss its label.
+  const [boxes, setBoxes] = useState<{ x: number; width: number }[]>([]);
+  const pillX = useRef(new Animated.Value(0)).current;
+  const pillW = useRef(new Animated.Value(0)).current;
+  const placed = useRef(false);
+
+  const box = boxes[index];
+
   useEffect(() => {
-    if (previous.current === index) return;
-    previous.current = index;
-    if (reducedMotion) {
-      slide.setValue(index);
+    if (!box) return;
+    if (!placed.current || reducedMotion) {
+      placed.current = true;
+      pillX.setValue(box.x);
+      pillW.setValue(box.width);
       return;
     }
-    Animated.spring(slide, {
-      toValue: index,
-      useNativeDriver: true,
-      stiffness: 320,
-      damping: 32,
-      mass: 0.7,
-    }).start();
-  }, [index, reducedMotion, slide]);
-
-  useEffect(() => {
-    slide.setValue(index);
-    // Only on mount / layout: re-running on every index change would cancel the
-    // spring above by snapping first.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const padding = 4;
-  const gap = 2;
-  const slot = width > 0 ? (width - padding * 2 - gap * (options.length - 1)) / options.length : 0;
+    Animated.parallel([
+      Animated.spring(pillX, {
+        toValue: box.x,
+        useNativeDriver: false,
+        stiffness: 320,
+        damping: 32,
+        mass: 0.7,
+      }),
+      Animated.spring(pillW, {
+        toValue: box.width,
+        useNativeDriver: false,
+        stiffness: 320,
+        damping: 32,
+        mass: 0.7,
+      }),
+    ]).start();
+  }, [box, pillW, pillX, reducedMotion]);
 
   return (
     <View
       style={[styles.segmented, style]}
       accessibilityRole="tablist"
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
-      {slot > 0 ? (
+      {box ? (
         <Animated.View
           pointerEvents="none"
-          style={[
-            styles.segmentPill,
-            {
-              width: slot,
-              transform: [
-                {
-                  translateX: slide.interpolate({
-                    inputRange: options.map((_, i) => i),
-                    outputRange: options.map((_, i) => padding + i * (slot + gap)),
-                  }),
-                },
-              ],
-            },
-          ]}
+          style={[styles.segmentPill, { width: pillW, transform: [{ translateX: pillX }] }]}
         />
       ) : null}
 
-      {options.map((option) => {
+      {options.map((option, optionIndex) => {
         const active = option.key === value;
         return (
           <Pressable
@@ -462,6 +452,18 @@ export function Segmented<T extends string>({
             onPress={() => onChange(option.key)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
+            onLayout={(event) => {
+              const { x, width } = event.nativeEvent.layout;
+              setBoxes((current) => {
+                const existing = current[optionIndex];
+                if (existing && Math.abs(existing.x - x) < 0.5 && Math.abs(existing.width - width) < 0.5) {
+                  return current;
+                }
+                const next = [...current];
+                next[optionIndex] = { x, width };
+                return next;
+              });
+            }}
             style={styles.segment}
           >
             {option.icon ? (
@@ -617,8 +619,12 @@ export function StatTile({
   return (
     <View style={styles.statTile}>
       <Icon name={icon} size={16} color={colors.accent} />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -810,8 +816,11 @@ const styles = makeStyles((colors) => ({
   bannerText: { ...type.small, flex: 1, lineHeight: 18, fontWeight: '500' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   statTile: {
-    flex: 1,
-    minWidth: 78,
+    // Two per row on a phone: four flexes in one row ran out of width and the
+    // numbers ("220.4 MB") printed over each other.
+    flexGrow: 1,
+    flexBasis: '46%',
+    flexShrink: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,

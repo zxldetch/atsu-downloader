@@ -1,17 +1,17 @@
 /**
  * The opening animation.
  *
- * It mirrors the app icon: the wordmark rises and fades in over the same
- * near-black field the native splash uses, a violet dot pulses, and a hairline
- * bar fills while the store rehydrates. When there is nothing left to wait for,
- * the whole overlay fades away and unmounts itself.
+ * It mirrors the app icon: the mark itself (the A with its violet slashes) rises
+ * and fades in over the same near-black field the native splash uses, a hairline
+ * bar fills while the store rehydrates, and the overlay fades away and unmounts
+ * itself once there is nothing left to wait for.
  *
  * Everything respects Reduce Motion: with motion off the mark is simply shown
  * until hydration finishes.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 
 import { useReducedMotion } from '../lib/motion';
 import { colors, makeStyles, spacing, type } from '../theme';
@@ -124,8 +124,15 @@ export function BootSplash({ ready, onDone }: { ready: boolean; onDone?: () => v
       accessibilityLiveRegion="polite"
       testID="boot-splash"
     >
-      <Animated.View style={[styles.markRow, markStyle]}>
-        <Text style={styles.mark}>ATSU</Text>
+      {/* The mark on transparency: the native splash draws the same shape, so the
+          hand-off from the OS splash into the app is invisible. */}
+      <Animated.View style={[styles.markWrap, markStyle]}>
+        <Image
+          source={require('../../assets/splash-icon.png')}
+          style={styles.mark}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
         <Animated.View style={[styles.dot, { transform: [{ scale: pulse }] }]} />
       </Animated.View>
 
@@ -156,14 +163,14 @@ const styles = makeStyles((colors) => ({
     justifyContent: 'center',
     gap: spacing.lg,
   },
-  markRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
-  mark: { ...type.brand, color: colors.text, fontSize: 30, letterSpacing: 6 },
+  markWrap: { alignItems: 'center', justifyContent: 'center' },
+  mark: { width: 92, height: 92 },
   dot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: colors.accent,
-    marginTop: 10,
+    marginTop: 14,
   },
   track: {
     width: 132,

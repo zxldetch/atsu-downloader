@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 33 · install over the old app, nothing is lost.*
+*Build 34 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -58,6 +58,16 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **The arrows move chapters.** Left/right always land on the first page of the
   neighbouring chapter (the label tells you which one). Page turns are the swipe,
   the page bar or the scrubber.
+- **Opening screen.** The splash shows the mark itself — the A with its slashes —
+  with no plate behind it. The plate had its own rounded corners and Android masks
+  the splash icon again on top, which doubled the cut and read as a polygon. The
+  in-app boot screen draws the same mark, so the hand-off is invisible.
+- **Storage numbers no longer overlap.** The four tiles now wrap two per row
+  instead of being squeezed into one, and a long value ("220.4 MB") shrinks to
+  fit instead of printing over its neighbour.
+- **Selector highlights sit under their label.** The sliding highlight is measured
+  from the option it belongs to rather than computed from a slot width, so it
+  lands exactly on the selected tab.
 - **CBZ only.** One file per chapter, holding every page in order — no format
   chips anywhere. The loose pages are removed once the archive is written, so a
   chapter costs its size once instead of twice.

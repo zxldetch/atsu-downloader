@@ -226,6 +226,19 @@ def main() -> None:
     icon = render(UNIT, with_plate=True, bleed=True).convert("RGB")
     icon.save(ASSETS / "icon.png")
 
+    # The splash shows the mark alone, with no plate behind it.
+    #
+    # Android 12+ draws the splash icon inside a system mask; a plate with its own
+    # rounded corners ends up double-cut by that mask and reads as a strange
+    # polygon (the "hexagon" when the app opens). A transparent mark cannot be
+    # double-masked into anything but itself.
+    splash = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+    mark_image = artwork(512, 0.94)
+    splash.alpha_composite(
+        mark_image, ((512 - mark_image.width) // 2, (512 - mark_image.height) // 2)
+    )
+    splash.save(ASSETS / "splash-icon.png")
+
     # Adaptive icons: Android applies its own mask, so the background is a
     # full-bleed gradient and the foreground holds only the mark.
     background = Image.new("RGBA", (UNIT, UNIT), (0, 0, 0, 255))
@@ -241,7 +254,6 @@ def main() -> None:
     mono.alpha_composite(flat, ((UNIT - flat.width) // 2, (UNIT - flat.height) // 2))
     mono.save(ASSETS / "android-icon-monochrome.png")
 
-    render(256, with_plate=True, bleed=False).save(ASSETS / "splash-icon.png")
     render(64, with_plate=True, bleed=False).save(ASSETS / "favicon.png")
 
     # A preview strip for eyeballing at real sizes.
