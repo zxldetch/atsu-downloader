@@ -313,6 +313,8 @@ export function ReaderScreen({ mangaId, chapterId }: { mangaId: string; chapterI
       current.chapterId,
       current.pageIndex + 1,
       current.total,
+      current.chapterNumber,
+      segments.find((segment) => segment.chapterId === current.chapterId)?.label,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.key, mangaId]);

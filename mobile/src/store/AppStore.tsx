@@ -75,7 +75,14 @@ interface AppActions {
   retryJob: (id: string) => void;
   removeJob: (id: string) => void;
   clearFinishedJobs: () => void;
-  saveReadingProgress: (mangaId: string, chapterId: string, page: number, total: number) => void;
+  saveReadingProgress: (
+    mangaId: string,
+    chapterId: string,
+    page: number,
+    total: number,
+    chapterNumber?: number,
+    chapterTitle?: string,
+  ) => void;
   deleteChapter: (mangaId: string, chapterId: string) => Promise<void>;
   removeFromLibrary: (mangaId: string) => Promise<void>;
   clearAllData: () => Promise<void>;
@@ -445,33 +452,87 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }));
           schedulePersist();
         },
-        saveReadingProgress: (mangaId, chapterId, page, total) => {
-          setState((prev) => ({
-            ...prev,
-            library: prev.library.map((entry) =>
-              entry.mangaId === mangaId
-                ? {
-                    ...entry,
-                    reading: { chapterId, page, total, updatedAt: Date.now() },
-                  }
-                : entry,
-            ),
-          }));
+        saveReadingProgress: (mangaId, chapterId, page, total, chapterNumber, chapterTitle) => {
+          setState((prev) => {
+            const saved = prev.library.find((entry) => entry.mangaId === mangaId)?.chapters?.[
+              chapterId
+            ];
+            const known =
+              chapterNumber ??
+              saved?.chapterNumber ??
+              prev.mangaCache[mangaId]?.chapters.find((chapter) => chapter.id === chapterId)
+                ?.number;
+            const title =
+              chapterTitle ??
+              saved?.chapterTitle ??
+              prev.mangaCache[mangaId]?.chapters.find((chapter) => chapter.id === chapterId)
+                ?.title;
+            return {
+              ...prev,
+              library: prev.library.map((entry) =>
+                entry.mangaId === mangaId
+                  ? {
+                      ...entry,
+                      reading: {
+                        chapterId,
+                        page,
+                        total,
+                        updatedAt: Date.now(),
+                        chapterNumber: known,
+                        chapterTitle: title,
+                      },
+                    }
+                  : entry,
+              ),
+            };
+          });
           schedulePersist();
         },
         deleteChapter: async (mangaId, chapterId) => {
-          const job = queueRef.current?.list().find((entry) => entry.chapterId === chapterId);
+          // The archive is what a CBZ download actually is, and it lives outside
+          // the chapter folder — deleting only the folder left 17 MB behind while
+          // the row disappeared, which looked exactly like "delete does nothing".
+          // Take the path from the library record first (it is the one that was
+          // written), then from a live job, then empty the folder.
+          const entry = state.library.find((item) => item.mangaId === mangaId);
+          const saved = entry?.chapters?.[chapterId];
+          const job = queueRef.current
+            ?.list()
+            .find((item) => item.mangaId === mangaId && item.chapterId === chapterId);
+
+          const targets = new Set<string>();
+          if (saved?.savedPath) targets.add(saved.savedPath);
+          if (job?.outputPath) targets.add(job.outputPath);
+
           await storage.removeDir(storage.chapterDir(mangaId, chapterId));
-          if (job?.outputPath && (job.format === 'cbz' || job.format === 'pdf')) {
-            await storage.remove(job.outputPath);
+          for (const target of targets) {
+            try {
+              await storage.remove(target);
+            } catch {
+              // A file that is already gone is not a failure.
+            }
           }
+
+          // The queue row goes too: a finished job for a chapter that no longer
+          // exists is just a row that cannot be cleared.
+          if (job) {
+            queueRef.current?.remove(job.id);
+            appliedStatus.current.delete(job.chapterId);
+          }
+
           setState((prev) => ({
             ...prev,
-            library: prev.library.map((entry) => {
-              if (entry.mangaId !== mangaId) return entry;
-              const chapters = { ...entry.chapters };
+            jobs: job ? prev.jobs.filter((item) => item.id !== job.id) : prev.jobs,
+            library: prev.library.map((item) => {
+              if (item.mangaId !== mangaId) return item;
+              const chapters = { ...item.chapters };
               delete chapters[chapterId];
-              return { ...entry, chapters };
+              // Where they stopped reading no longer points at a deleted file.
+              const reading =
+                item.reading?.chapterId === chapterId
+                  ? { ...item.reading, page: 1, total: 0 }
+                  : item.reading;
+              return { ...item, chapters, reading };
             }),
           }));
           schedulePersist();

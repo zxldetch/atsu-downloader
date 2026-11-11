@@ -99,6 +99,9 @@ export interface ReadingProgress {
   page: number;
   total: number;
   updatedAt: number;
+  /** The chapter's number, so the shelf can say "Ch. 54" without the API. */
+  chapterNumber?: number;
+  chapterTitle?: string;
 }
 
 export interface LibraryEntry {
@@ -114,6 +117,10 @@ export interface LibraryEntry {
 }
 
 export interface Config {
+  /**
+   * Kept for older stored configs and existing library entries; downloads are
+   * always CBZ now, so nothing writes 'images' or 'pdf' any more.
+   */
   downloadFormat: OutputFormat;
   keepImages: boolean;
   concurrentChapters: number;
@@ -142,8 +149,10 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  downloadFormat: 'images',
-  keepImages: true,
+  // CBZ is the only download format: one file per chapter, which is what the
+  // reader, the exporter and every storage number assume.
+  downloadFormat: 'cbz',
+  keepImages: false,
   // A 100-chapter binge is the normal case, not the exception: the old 2/4
   // defaults turned one into an overnight job. 4 chapters x 8 images keeps a
   // mid-range phone saturated without starving the reader.

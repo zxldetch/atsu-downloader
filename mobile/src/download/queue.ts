@@ -566,9 +566,11 @@ export class DownloadQueue {
       await storage.writeFile(output, archive);
     }
 
-    // The page files stay on disk: they are what the reader shows when you are
-    // offline. The old default deleted them to save space and kept only the
-    // archive — which is why downloads could not be read without a connection.
+    // One copy, not two. The archive holds every page in order, and the reader
+    // unpacks it on first open (see ReaderScreen.loadSegment), so keeping the raw
+    // files as well only doubled what a chapter costs on the device. Deleting
+    // them here is what makes "220 MB of downloads" mean 220 MB of comics.
+    await storage.removeDir(dir);
     return output;
   }
 }

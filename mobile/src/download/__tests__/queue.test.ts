@@ -201,7 +201,7 @@ describe('DownloadQueue', () => {
     expect(queue.list()[0].bytes).toBe(16);
   });
 
-  it('packs a CBZ and keeps the pages so the chapter still reads offline', async () => {
+  it('packs a CBZ and keeps one copy of the pages, not two', async () => {
     const { queue } = makeQueue(config({ downloadFormat: 'cbz', keepImages: false }));
     queue.enqueue(spec({ format: 'cbz' }));
 
@@ -218,10 +218,11 @@ describe('DownloadQueue', () => {
     expect(text).toContain('<Series>The Lantern Courier</Series>');
     expect(text).toContain('0005.webp');
 
-    // The archive is an export; the pages are what the reader renders offline,
-    // so they are never deleted — even with the old keepImages flag off.
-    expect(state.removedDirs).not.toContain('atsu/OaKBx/ch-1');
-    expect(state.files.has('atsu/OaKBx/ch-1/0001.webp')).toBe(true);
+    // CBZ is the only format now, so the archive *is* the download: the loose
+    // pages are removed once it is safely written (the reader unpacks them on
+    // first open). Keeping both doubled what a chapter cost on the device.
+    expect(state.removedDirs).toContain('atsu/OaKBx/ch-1');
+    expect(state.files.has('atsu/OaKBx/ch-1/0001.webp')).toBe(false);
   });
 
   it('pauses, resumes and finishes', async () => {

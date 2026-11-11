@@ -467,11 +467,17 @@ export function Segmented<T extends string>({
             {option.icon ? (
               <Icon
                 name={option.icon}
-                size={14}
+                size={options.length > 2 ? 13 : 14}
                 color={active ? colors.text : colors.textDim}
               />
             ) : null}
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+            {/* A long label used to spill out of its slot and collide with the
+                next tab — three tabs of "On device · 23" is not a segment. */}
+            <Text
+              style={[styles.segmentText, active && styles.segmentTextActive]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {option.label}
             </Text>
           </Pressable>
@@ -735,9 +741,11 @@ const styles = makeStyles((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     paddingVertical: 9,
+    paddingHorizontal: 4,
     borderRadius: radius.sm,
+    minWidth: 0,
   },
   segmentPill: {
     position: 'absolute',
@@ -747,7 +755,7 @@ const styles = makeStyles((colors) => ({
     borderRadius: radius.sm,
     backgroundColor: colors.card,
   },
-  segmentText: { ...type.small, color: colors.textDim, fontWeight: '600' },
+  segmentText: { ...type.small, color: colors.textDim, fontWeight: '600', flexShrink: 1 },
   segmentTextActive: { color: colors.text },
   settingRow: {
     flexDirection: 'row',

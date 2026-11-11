@@ -193,6 +193,19 @@ no network opens the pages instead of "series not available". While offline,
 series pages fall back to the downloaded chapters (`MangaScreen`'s
 `offlineManga`), and "next chapter" walks the chapters that are actually on disk.
 
+### One format
+
+Downloads are always **CBZ**: one archive per chapter, pages in order, with
+ComicInfo metadata. There is no format selector, and the raw page files are
+deleted once the archive is written (`finalize`), so a chapter occupies its size
+once. The reader unpacks an archive the first time it is opened
+(`ReaderScreen.loadSegment` → `storage.extractArchive`) and reads from disk
+afterwards, so offline reading is unaffected.
+
+Deleting a chapter removes the archive named by the library record, the chapter
+folder, the queue row and the library entry — the archive lives in `atsu/exports`,
+outside the chapter folder, and deleting only the folder used to leave it behind.
+
 ### Downloads that survive a bad connection
 
 Pages are fetched in **passes** over whatever is still missing rather than one

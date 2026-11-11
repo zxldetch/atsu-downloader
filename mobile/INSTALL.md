@@ -7,7 +7,7 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 
 ## New in this build
 
-*Build 32 · install over the old app, nothing is lost.*
+*Build 33 · install over the old app, nothing is lost.*
 
 - **Renamed** to **Atsu Offline** (same package `moe.atsu.mobile`, so it installs
   straight over the old build and keeps your library).
@@ -58,6 +58,19 @@ Android-only. The APK is universal (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`)
 - **The arrows move chapters.** Left/right always land on the first page of the
   neighbouring chapter (the label tells you which one). Page turns are the swipe,
   the page bar or the scrubber.
+- **CBZ only.** One file per chapter, holding every page in order — no format
+  chips anywhere. The loose pages are removed once the archive is written, so a
+  chapter costs its size once instead of twice.
+- **Delete downloads actually deletes.** The archive lives outside the chapter
+  folder, and that was the file left behind: a deleted chapter kept its 17 MB
+  while its row vanished. Deletion now takes the recorded path, the queue row and
+  the library entry together.
+- **Settings, sectioned and quiet.** Appearance · Reader · Downloads · Source ·
+  Storage · Updates · About, one line of explanation per row and no essays.
+- **Shelf tabs fit.** "On device · 23" beside "Downloads · 27" was overflowing its
+  slot and printing over the next tab.
+- **"Ch. ?" on the shelf** is a real chapter number again, because the number is
+  saved with your progress instead of being guessed from a chapter id.
 - **Dark grey icon.** The A and its slashes now sit on a dark grey plate instead
   of the pale one, with the mark repainted near-white so it still reads.
 - **Smaller download.** The APK no longer carries the emulator-only x86 libraries,

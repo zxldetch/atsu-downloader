@@ -3,6 +3,8 @@
  * tests (jest.mock('../../lib/storage') picks this file up automatically).
  */
 
+import { readArchivePages } from '../cbz';
+
 export const ROOT = 'atsu';
 export const PAGE_EXT = '.webp';
 
@@ -133,6 +135,15 @@ export async function removeDir(path: string): Promise<void> {
   for (const key of [...__state.files.keys()]) {
     if (key === path || key.startsWith(`${path}/`)) __state.files.delete(key);
   }
+}
+
+/** The real unpacking logic over the in-memory files, so CBZ chapters read offline. */
+export async function extractArchive(archivePath: string, dir: string): Promise<number> {
+  const pages = await readArchivePages(await readBytes(archivePath));
+  for (const page of pages) {
+    await writeFile(`${dir}/${page.name}`, page.bytes);
+  }
+  return pages.length;
 }
 
 export async function uriFor(path: string): Promise<string> {

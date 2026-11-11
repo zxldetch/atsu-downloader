@@ -187,28 +187,20 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
               offlineChapters === 1 ? '' : 's'
             } offline`
           : segment === 'device'
-            ? `${offlineChapters} chapter${offlineChapters === 1 ? '' : 's'} · ${
-                deviceChapters.length === 0
-                  ? 'nothing downloaded yet'
-                  : formatBytes(deviceChapters.reduce((sum, row) => sum + row.bytes, 0))
-              } · readable without a connection`
-            : `${activeCount} in progress · ${jobs.length} total`
+            ? deviceChapters.length === 0
+              ? 'Nothing downloaded yet'
+              : `${deviceChapters.length} chapter${
+                  deviceChapters.length === 1 ? '' : 's'
+                } · ${formatBytes(deviceChapters.reduce((sum, row) => sum + row.bytes, 0))}`
+            : `${activeCount} downloading · ${jobs.length} in the queue`
       }
     >
       <View style={styles.segmentWrap}>
         <Segmented<Segment>
           options={[
             { key: 'library', label: 'Library', icon: 'albums-outline' },
-            {
-              key: 'device',
-              label: offlineChapters > 0 ? `On device · ${offlineChapters}` : 'On device',
-              icon: 'phone-portrait-outline',
-            },
-            {
-              key: 'downloads',
-              label: activeCount > 0 ? `Downloads · ${activeCount}` : 'Downloads',
-              icon: 'arrow-down-circle-outline',
-            },
+            { key: 'device', label: 'On device', icon: 'phone-portrait-outline' },
+            { key: 'downloads', label: 'Queue', icon: 'arrow-down-circle-outline' },
           ]}
           value={segment}
           onChange={setSegment}
@@ -304,7 +296,7 @@ export function ShelfScreen({ initialTab }: { initialTab?: Segment }) {
           ListHeaderComponent={
             deviceChapters.length > 0 ? (
               <Text style={styles.deviceHint}>
-                Downloaded chapters, newest series first. Tap to read — long-press to delete.
+                Tap to read · long-press to delete
               </Text>
             ) : undefined
           }

@@ -9,6 +9,7 @@
 jest.mock('../lib/storage');
 
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import App from '../../App';
 
@@ -101,7 +102,7 @@ describe('Atsu Offline app', () => {
     expect(screen.getAllByText('3 selected').length).toBeGreaterThan(0);
   });
 
-  it('downloads a chapter as page files and shows it in the shelf queue', async () => {
+  it('downloads a chapter as a single CBZ and shows it in the queue', async () => {
     await renderApp();
     await openDemoSeries();
 
@@ -113,7 +114,7 @@ describe('Atsu Offline app', () => {
       fireEvent.press(screen.getByText('Download 1'));
     });
 
-    await screen.findByText('Downloads', {}, { timeout: 4000 });
+    await screen.findByText('Queue', {}, { timeout: 4000 });
     await waitFor(
       () => {
         expect(screen.getAllByText('Saved').length).toBeGreaterThan(0);
@@ -121,12 +122,15 @@ describe('Atsu Offline app', () => {
       { timeout: 8000 },
     );
 
-    // The default format is page images, which is what the reader paints offline.
-    const pages = [...storage.__state.files.keys()].filter((path: string) =>
-      /\.(webp|jpe?g|png)$/i.test(path),
+    // One file per chapter: the archive holds every page, the loose pages are gone.
+    const archives = [...storage.__state.files.keys()].filter((path: string) =>
+      path.endsWith('.cbz'),
     );
-    expect(pages.length).toBeGreaterThan(0);
-    expect(pages[0]).toContain('demo-lantern-ch-1/0001');
+    expect(archives.length).toBe(1);
+    expect(archives[0]).toContain('ch 1.cbz');
+    expect(
+      [...storage.__state.files.keys()].filter((path: string) => /\.(webp|jpe?g|png)$/i.test(path)),
+    ).toHaveLength(0);
   });
 
   it('opens a chapter on tap in read mode, and only ticks rows in download mode', async () => {
@@ -193,6 +197,60 @@ describe('Atsu Offline app', () => {
     offline.mockRestore();
   });
 
+  it('deletes a download: the archive, the queue row and the library entry', async () => {
+    await renderApp();
+    await openDemoSeries();
+
+    await chooseDownloadMode();
+    await act(async () => {
+      fireEvent.press(screen.getByText('Chapter 1 · The first delivery'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Download 1'));
+    });
+    await waitFor(
+      () =>
+        expect(
+          [...storage.__state.files.keys()].filter((path: string) => path.endsWith('.cbz')),
+        ).toHaveLength(1),
+      { timeout: 8000 },
+    );
+
+    // The download jumps to the queue; go back to the series in read mode.
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Home'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('The Lantern Courier'));
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByText('Read'));
+    });
+    await screen.findByText('Chapter 1 · The first delivery');
+
+    // Long-press a downloaded chapter on the series page.
+    const alert = jest.spyOn(Alert, 'alert');
+    await act(async () => {
+      fireEvent(screen.getByText('Chapter 1 · The first delivery'), 'longPress');
+    });
+
+    expect(alert).toHaveBeenCalled();
+    const buttons = alert.mock.calls[0]?.[2] as { text?: string; onPress?: () => void }[];
+    const confirm = buttons?.find((button) => button.text === 'Delete');
+    expect(confirm).toBeTruthy();
+    await act(async () => {
+      confirm?.onPress?.();
+    });
+
+    // Nothing of that chapter is left on the device — the archive is the download,
+    // and it lives outside the chapter folder.
+    expect(
+      [...storage.__state.files.keys()].filter((path: string) => path.endsWith('.cbz')),
+    ).toHaveLength(0);
+    expect(alert).toHaveBeenCalledTimes(1);
+    alert.mockRestore();
+  });
+
   it('moves a whole chapter per arrow, not a page', async () => {
     await renderApp();
     await openDemoSeries();
@@ -235,7 +293,7 @@ describe('Atsu Offline app', () => {
     });
 
     // The library record lands once the job is finalised, and the tab counts it.
-    const tab = await screen.findByText('On device · 1', {}, { timeout: 8000 });
+    const tab = await screen.findByText('On device', {}, { timeout: 8000 });
 
     // The section is built from the library record, so it needs no network.
     const offline = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('no network'));
@@ -370,14 +428,15 @@ describe('Atsu Offline app', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Settings'));
     });
-    await screen.findByText('Download speed');
+    await screen.findByText('Download Speed');
 
     await act(async () => {
       fireEvent.press(screen.getByText('Turbo'));
     });
 
-    expect(screen.getByText(/Peak parallelism is/)).toBeTruthy();
-    expect(screen.getByText(/72 connections/)).toBeTruthy();
+    // The preset sets both concurrency numbers, and the steppers show them.
+    expect(screen.getByText('6')).toBeTruthy();
+    expect(screen.getByText('12')).toBeTruthy();
   });
 
   it('lists scanlation groups and filters chapters to the chosen one', async () => {
@@ -410,17 +469,17 @@ describe('Atsu Offline app', () => {
     });
     await screen.findByText('Appearance');
 
-    expect(screen.getByText('atsu.moe Midnight · every screen, the reader chrome and the splash follow this choice.')).toBeTruthy();
+    // One description per section, not per option.
+    expect(screen.getByText('Choose your preferred app theme.')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByText('Light'));
     });
-    expect(screen.getByText('Daylight · every screen, the reader chrome and the splash follow this choice.')).toBeTruthy();
+    expect(screen.getByText('Choose your preferred app theme.')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(screen.getByText('Dark'));
     });
-    expect(screen.getByText('True-black OLED · every screen, the reader chrome and the splash follow this choice.')).toBeTruthy();
 
     // The theme remount must not throw you back to Home.
     expect(screen.getByText('Appearance')).toBeTruthy();
@@ -432,14 +491,38 @@ describe('Atsu Offline app', () => {
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Settings'));
     });
-    await screen.findByText('Atsu Offline');
+    await screen.findByText('Appearance');
 
-    expect(screen.getByText('Reader')).toBeTruthy();
-    expect(screen.getByText('Keep the screen awake')).toBeTruthy();
-    expect(screen.getByText('Default format')).toBeTruthy();
-    expect(screen.getByText('Demo mode')).toBeTruthy();
-    expect(screen.getByText('Delete downloaded chapters')).toBeTruthy();
-    expect(screen.getByText('Reset app and all data')).toBeTruthy();
+    // The sections and rows the settings screen is specified to have, in order,
+    // each with a single line of explanation.
+    expect(screen.getByText('Choose your preferred app theme.')).toBeTruthy();
+    expect(screen.getByText('Reading Direction')).toBeTruthy();
+    expect(screen.getByText('Choose how pages are displayed.')).toBeTruthy();
+    expect(screen.getByText('Keep the Screen Awake')).toBeTruthy();
+    expect(screen.getByText('Prevent the screen from turning off while reading.')).toBeTruthy();
+    expect(screen.getByText('Infinite Mode')).toBeTruthy();
+    expect(screen.getByText('Scroll continuously between pages.')).toBeTruthy();
+    expect(screen.getByText('Download Speed')).toBeTruthy();
+    expect(screen.getByText('Set the number of simultaneous downloads.')).toBeTruthy();
+    expect(screen.getByText('Chapters at Once')).toBeTruthy();
+    expect(screen.getByText('Images per Chapter')).toBeTruthy();
+    expect(screen.getByText('Retry per Image')).toBeTruthy();
+    expect(screen.getByText('Retry Delay')).toBeTruthy();
+    expect(screen.getByText('Server Mode')).toBeTruthy();
+    expect(screen.getByText('Choose how content is delivered.')).toBeTruthy();
+    expect(screen.getByText('Source Code')).toBeTruthy();
+    expect(screen.getByText('Storage Usage')).toBeTruthy();
+    expect(screen.getByText('Delete Downloaded Chapters')).toBeTruthy();
+    expect(screen.getByText('Remove all downloaded chapters.')).toBeTruthy();
+    expect(screen.getByText('Reset App and Data')).toBeTruthy();
+    expect(screen.getByText('Restore the app to its default state.')).toBeTruthy();
+    expect(screen.getByText('Update Information')).toBeTruthy();
+    expect(screen.getByText('About the App')).toBeTruthy();
+
+    // CBZ is fixed: there is no format selector to pick something else.
+    expect(screen.getByText('CBZ')).toBeTruthy();
+    expect(screen.queryByText('Images')).toBeNull();
+    expect(screen.queryByText('PDF')).toBeNull();
   });
 
   it('filters the shelf from the search field', async () => {

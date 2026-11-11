@@ -1,12 +1,10 @@
 import Constants from 'expo-constants';
 import { Fragment, useMemo, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '../components/icons';
 import {
-  Banner,
   Button,
-  Chip,
   Divider,
   SectionHeader,
   Segmented,
@@ -17,26 +15,18 @@ import {
 import { UpdateNotice, useUpdateCheck } from '../components/UpdateNotice';
 import { confirmAsync } from '../lib/confirm';
 import * as storage from '../lib/storage';
-import { Slider } from '../components/Slider';
-import { Screen, useNav } from '../navigation';
+import { Screen } from '../navigation';
 import { useApp } from '../store/AppStore';
 import {
   colors,
-  useThemeName, makeStyles,
-  palettes,
+  makeStyles,
   radius,
   spacing,
   type,
   THEME_OPTIONS,
+  useThemeName,
   type ThemeName,
 } from '../theme';
-import type { OutputFormat } from '../types';
-
-const FORMATS: { key: OutputFormat; label: string }[] = [
-  { key: 'cbz', label: 'CBZ' },
-  { key: 'pdf', label: 'PDF' },
-  { key: 'images', label: 'Images' },
-];
 
 type SpeedPreset = 'gentle' | 'balanced' | 'turbo';
 
@@ -59,16 +49,7 @@ const SITE_URL = 'https://atsu.moe';
 export function SettingsScreen() {
   useThemeName();
   const { config, jobs, library, actions } = useApp();
-  const nav = useNav();
   const [busy, setBusy] = useState<'downloads' | 'all' | null>(null);
-
-  const activePreset = useMemo(() => {
-    const match = SPEED_PRESETS.find(
-      (preset) =>
-        preset.chapters === config.concurrentChapters && preset.images === config.concurrentImages,
-    );
-    return match?.key ?? 'custom';
-  }, [config.concurrentChapters, config.concurrentImages]);
 
   const stats = useMemo(() => {
     const chapters = library.reduce(
@@ -110,72 +91,35 @@ export function SettingsScreen() {
     setBusy(null);
   };
 
-  const updates = useUpdateCheck();
+  /** Which speed preset the current numbers correspond to, if any. */
+  const activePreset = useMemo(() => {
+    const match = SPEED_PRESETS.find(
+      (preset) =>
+        preset.chapters === config.concurrentChapters && preset.images === config.concurrentImages,
+    );
+    return match?.key ?? 'custom';
+  }, [config.concurrentChapters, config.concurrentImages]);
 
-  const openLink = (url: string) => {
-    void Linking.openURL(url).catch(() => {});
-  };
+  const updates = useUpdateCheck();
 
   return (
     <Screen title="Settings" subtitle={config.demoMode ? 'Demo source' : 'Live · atsu.moe'}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.identity}>
-          <View style={styles.identityMark}>
-            <Text style={styles.identityMarkText}>A</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.identityTitle}>Atsu Offline</Text>
-            <Text style={styles.identityMeta}>
-              v{Constants.expoConfig?.version ?? '1.0.0'} ·{' '}
-              {config.demoMode ? 'demo fixtures' : 'direct from atsu.moe'}
-            </Text>
-          </View>
-          <Chip
-            label={config.demoMode ? 'DEMO' : 'LIVE'}
-            tone={config.demoMode ? 'warning' : 'success'}
-          />
-        </View>
-
+        {/* Appearance ------------------------------------------------------ */}
         <SectionHeader title="Appearance" />
         <View style={styles.card}>
-          <Text style={styles.rowLabel}>Theme</Text>
+          <LabelBlock label="Theme" hint="Choose your preferred app theme." />
           <Segmented<ThemeName>
-            options={THEME_OPTIONS.map((option) => ({
-              key: option.key,
-              label: option.label,
-            }))}
+            options={THEME_OPTIONS.map((option) => ({ key: option.key, label: option.label }))}
             value={config.theme}
             onChange={(theme) => actions.updateConfig({ theme })}
-            style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
           />
-          <Text style={styles.rowHint}>
-            {THEME_OPTIONS.find((option) => option.key === config.theme)?.hint ?? ''} · every
-            screen, the reader chrome and the splash follow this choice.
-          </Text>
-          <View style={styles.swatches}>
-            {(Object.keys(palettes) as ThemeName[]).map((name) => (
-              <Pressable
-                key={name}
-                onPress={() => actions.updateConfig({ theme: name })}
-                accessibilityRole="button"
-                accessibilityLabel={`Use the ${name} theme`}
-                accessibilityState={{ selected: config.theme === name }}
-                style={[
-                  styles.swatch,
-                  { backgroundColor: palettes[name].bg, borderColor: palettes[name].borderStrong },
-                  config.theme === name && { borderColor: colors.accent, borderWidth: 2 },
-                ]}
-              >
-                <View style={[styles.swatchCard, { backgroundColor: palettes[name].card }]} />
-                <View style={[styles.swatchAccent, { backgroundColor: palettes[name].accent }]} />
-              </Pressable>
-            ))}
-          </View>
         </View>
 
+        {/* Reader ---------------------------------------------------------- */}
         <SectionHeader title="Reader" />
         <View style={styles.card}>
-          <Text style={styles.rowLabel}>Reading direction</Text>
+          <LabelBlock label="Reading Direction" hint="Choose how pages are displayed." />
           <Segmented<'vertical' | 'paged'>
             options={[
               { key: 'vertical', label: 'Vertical', icon: 'reorder-four-outline' },
@@ -183,67 +127,32 @@ export function SettingsScreen() {
             ]}
             value={config.readerMode}
             onChange={(readerMode) => actions.updateConfig({ readerMode })}
-            style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
           />
-          <Text style={styles.rowHint}>
-            Vertical stitches the chapter into one scroll, the way webtoons are drawn. Paged shows
-            one image at a time and pages left to right.
-          </Text>
-          <Divider style={{ marginVertical: spacing.sm }} />
+          <Divider style={{ marginVertical: spacing.md }} />
           <Toggle
-            label="Keep the screen awake"
-            hint="Stops the phone sleeping mid-chapter."
+            label="Keep the Screen Awake"
+            hint="Prevent the screen from turning off while reading."
             value={config.keepScreenAwake}
             onChange={(keepScreenAwake) => actions.updateConfig({ keepScreenAwake })}
           />
-        </View>
-
-        <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Divider />
           <Toggle
-            label="Infinite mode"
-            hint="Next/previous move into the neighbouring chapter, and the end of a strip loads the next one."
+            label="Infinite Mode"
+            hint="Scroll continuously between pages."
             value={config.autoAdvanceChapters}
             onChange={(autoAdvanceChapters) => actions.updateConfig({ autoAdvanceChapters })}
           />
-          <Toggle
-            label="Auto-scroll"
-            hint="Glide down the page without touching it. Touching pauses it for a moment."
-            value={config.autoScroll}
-            onChange={(autoScroll) => actions.updateConfig({ autoScroll })}
-          />
-          <Slider
-            value={(config.autoScrollSpeed - 1) / 9}
-            steps={10}
-            onChange={(value) => actions.updateConfig({ autoScrollSpeed: 1 + Math.round(value * 9) })}
-            label="SCROLL SPEED"
-            valueLabel={`${config.autoScrollSpeed}`}
-            disabled={!config.autoScroll}
-            style={{ marginTop: spacing.md }}
-          />
         </View>
 
+        {/* Downloads ------------------------------------------------------- */}
         <SectionHeader title="Downloads" />
         <View style={styles.card}>
-          <Text style={styles.rowLabel}>Default format</Text>
-          <View style={styles.chipRow}>
-            {FORMATS.map((format) => (
-              <Chip
-                key={format.key}
-                label={format.label}
-                active={config.downloadFormat === format.key}
-                onPress={() => actions.updateConfig({ downloadFormat: format.key })}
-              />
-            ))}
-          </View>
-          <Text style={styles.rowHint}>
-            Pages are always kept on the device, so every download reads offline. CBZ and PDF
-            also write an archive next to them for sharing.{' '}
-            {config.downloadFormat === 'images' ? '' : 'That doubles the space a chapter takes.'}
-          </Text>
-        </View>
-
-        <View style={[styles.card, { marginTop: spacing.md }]}>
-          <Text style={styles.rowLabel}>Download speed</Text>
+          {/* One format, no selector: a CBZ per chapter holds every page in order. */}
+          <InfoRow icon="archive-outline" label="Format">
+            CBZ
+          </InfoRow>
+          <Divider style={{ marginVertical: spacing.sm }} />
+          <LabelBlock label="Download Speed" hint="Set the number of simultaneous downloads." />
           <Segmented<SpeedPreset>
             options={SPEED_PRESETS.map((preset) => ({ key: preset.key, label: preset.label }))}
             value={activePreset as SpeedPreset}
@@ -255,19 +164,13 @@ export function SettingsScreen() {
                 concurrentImages: preset.images,
               });
             }}
-            style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
           />
-          <Text style={styles.rowHint}>
-            {SPEED_PRESETS.find((preset) => preset.key === activePreset)?.hint ??
-              `Custom — ${config.concurrentChapters} chapters × ${config.concurrentImages} images.`}{' '}
-            Peak parallelism is{' '}
-            {config.concurrentChapters * config.concurrentImages} connections; if pages start
-            failing or the phone gets hot, step down one level.
-          </Text>
-          <Divider style={{ marginVertical: spacing.sm }} />
+        </View>
+
+        <View style={[styles.card, { marginTop: spacing.md }]}>
           <Stepper
-            label="Chapters at once"
-            hint="Phones do better with fewer parallel chapters than a desktop."
+            label="Chapters at Once"
+            hint="Choose how many chapters to download at a time."
             value={config.concurrentChapters}
             min={1}
             max={8}
@@ -275,8 +178,8 @@ export function SettingsScreen() {
           />
           <Divider />
           <Stepper
-            label="Images per chapter"
-            hint="Higher is faster, heavier on data and battery."
+            label="Images per Chapter"
+            hint="Set the number of images downloaded per chapter."
             value={config.concurrentImages}
             min={1}
             max={16}
@@ -284,7 +187,8 @@ export function SettingsScreen() {
           />
           <Divider />
           <Stepper
-            label="Retries per image"
+            label="Retry per Image"
+            hint="Set how many times a failed image download is retried."
             value={config.maxRetries}
             min={0}
             max={6}
@@ -292,8 +196,8 @@ export function SettingsScreen() {
           />
           <Divider />
           <Stepper
-            label="Retry delay"
-            hint="Doubles after every failed attempt."
+            label="Retry Delay"
+            hint="Set the time between download retries."
             value={config.retryDelay}
             min={1}
             max={10}
@@ -302,116 +206,120 @@ export function SettingsScreen() {
           />
         </View>
 
+        {/* Source ---------------------------------------------------------- */}
         <SectionHeader title="Source" />
         <View style={styles.card}>
-          <Toggle
-            label="Demo mode"
-            hint="Serves bundled sample series instead of calling atsu.moe. Handy for trying the app without using data."
-            value={config.demoMode}
-            onChange={(demoMode) => actions.updateConfig({ demoMode })}
+          <LabelBlock label="Server Mode" hint="Choose how content is delivered." />
+          <Segmented<'live' | 'demo'>
+            options={[
+              { key: 'live', label: 'Live', icon: 'globe-outline' },
+              { key: 'demo', label: 'Demo', icon: 'flask-outline' },
+            ]}
+            value={config.demoMode ? 'demo' : 'live'}
+            onChange={(mode) => actions.updateConfig({ demoMode: mode === 'demo' })}
           />
           <Divider style={{ marginVertical: spacing.sm }} />
-          <InfoRow icon="cloud-outline" label="API">
-            {Platform.OS === 'web' ? 'same-origin proxy → atsu.moe' : 'atsu.moe · direct from device'}
-          </InfoRow>
-          <InfoRow icon="image-outline" label="Images">
-            cdn.atsu.moe
-          </InfoRow>
-          <InfoRow icon="folder-outline" label="Files">
-            {storage.storageRootDescription()}
-          </InfoRow>
+          <LinkRow
+            icon="logo-github"
+            label="Source Code"
+            hint="View the app's source code."
+            onPress={() => void Linking.openURL(REPO_URL).catch(() => {})}
+          />
         </View>
 
+        {/* Storage --------------------------------------------------------- */}
         <SectionHeader title="Storage" />
-        <View style={styles.statRow}>
-          <StatTile icon="albums-outline" label="Series" value={String(library.length)} />
-          <StatTile icon="book-outline" label="Offline" value={String(stats.chapters)} />
-          <StatTile
-            icon="save-outline"
-            label="On disk"
-            value={`${(stats.bytes / (1024 * 1024)).toFixed(stats.bytes > 99 * 1024 * 1024 ? 0 : 1)} MB`}
-          />
-          <StatTile icon="sync-outline" label="Active" value={String(stats.active)} />
+        <View style={styles.card}>
+          <LabelBlock label="Storage Usage" hint="View your current storage usage." />
+          <View style={styles.statRow}>
+            <StatTile icon="albums-outline" label="Series" value={String(library.length)} />
+            <StatTile icon="book-outline" label="Offline" value={String(stats.chapters)} />
+            <StatTile
+              icon="save-outline"
+              label="On disk"
+              value={`${(stats.bytes / (1024 * 1024)).toFixed(stats.bytes > 99 * 1024 * 1024 ? 0 : 1)} MB`}
+            />
+            <StatTile icon="sync-outline" label="Active" value={String(stats.active)} />
+          </View>
         </View>
+
         <View style={[styles.card, { marginTop: spacing.md }]}>
+          <Text style={styles.rowLabel}>Delete Downloaded Chapters</Text>
+          <Text style={styles.rowHint}>Remove all downloaded chapters.</Text>
           <Button
-            label="Delete downloaded chapters"
+            label="Delete"
             icon="trash-outline"
             onPress={clearDownloads}
             loading={busy === 'downloads'}
-            style={{ marginBottom: spacing.sm }}
+            style={{ marginTop: spacing.md }}
           />
+          <Divider style={{ marginVertical: spacing.md }} />
+          <Text style={styles.rowLabel}>Reset App and Data</Text>
+          <Text style={styles.rowHint}>Restore the app to its default state.</Text>
           <Button
-            label="Reset app and all data"
+            label="Reset"
             variant="danger"
             icon="warning-outline"
             onPress={resetAll}
             loading={busy === 'all'}
+            style={{ marginTop: spacing.md }}
           />
-          <Text style={[styles.rowHint, { marginTop: spacing.md }]}>
-            Deleting chapters frees space but keeps your shelf and where you stopped reading.
-          </Text>
         </View>
 
+        {/* Updates --------------------------------------------------------- */}
         <SectionHeader title="Updates" />
         <View style={styles.card}>
+          <Text style={styles.rowLabel}>Update Information</Text>
+          <Text style={[styles.rowHint, { marginBottom: spacing.md }]}>
+            Check the latest version and update details.
+          </Text>
           <UpdateNotice
             state={updates.state}
             checking={updates.checking}
             onCheck={() => void updates.check()}
-            compact
           />
-          <Text style={styles.rowHint}>
-            Builds are published to GitHub. The app checks once per launch and offers the APK;
-            Android asks you to confirm the install, since sideloaded apps cannot self-update.
-          </Text>
         </View>
 
+        {/* About ----------------------------------------------------------- */}
         <SectionHeader title="About" />
         <View style={styles.card}>
-          <Text style={styles.aboutText}>
-            A React Native port of the Atsu Downloader desktop app — the atsu.moe API client, the
-            chapter scraper, the download manager and the CBZ/PDF exporters are all reimplemented
-            in TypeScript so they run on the phone itself.
+          <Text style={styles.rowLabel}>About the App</Text>
+          <Text style={styles.rowHint}>
+            v{Constants.expoConfig?.version ?? '1.0.0'} · build{' '}
+            {Constants.expoConfig?.android?.versionCode ?? '—'} · not affiliated with atsu.moe.
           </Text>
-          <Text style={[styles.aboutText, { marginTop: spacing.sm }]}>
-            Pages come from atsu.moe and its CDN; nothing is uploaded anywhere. Your shelf, queue,
-            downloads and settings live in this app's own storage.
-          </Text>
-          <Text style={[styles.aboutText, { marginTop: spacing.sm }]}>
-            Every build is signed with the same key, so installing a newer APK over this one —{' '}
-            <Text style={{ fontWeight: '700' }}>never uninstall first</Text> — keeps your library and
-            your downloaded chapters.
-          </Text>
-          <Text style={[styles.aboutText, { marginTop: spacing.sm, color: colors.warning }]}>
-            Download only what you have the right to keep. This app ships with demo fixtures so you
-            can evaluate it without touching third-party content.
-          </Text>
-
-          <View style={{ marginTop: spacing.lg }}>
-            <LinkRow icon="logo-github" label="Source code" onPress={() => openLink(REPO_URL)} />
+          <View style={{ marginTop: spacing.sm }}>
             <LinkRow
               icon="download-outline"
-              label="Get the latest APK"
-              onPress={() => openLink(`${REPO_URL}/releases/tag/mobile-latest`)}
+              label="Latest APK"
+              onPress={() =>
+                void Linking.openURL(`${REPO_URL}/releases/tag/mobile-latest`).catch(() => {})
+              }
             />
-            <LinkRow icon="book-outline" label="Install guide" onPress={() => openLink(GUIDE_URL)} />
-            <LinkRow icon="globe-outline" label="atsu.moe" onPress={() => openLink(SITE_URL)} />
+            <LinkRow
+              icon="book-outline"
+              label="Install Guide"
+              onPress={() => void Linking.openURL(GUIDE_URL).catch(() => {})}
+            />
+            <LinkRow
+              icon="globe-outline"
+              label="atsu.moe"
+              onPress={() => void Linking.openURL(SITE_URL).catch(() => {})}
+            />
           </View>
         </View>
-
-        <Pressable onPress={() => nav.go('shelf')} style={{ marginTop: spacing.xl }}>
-          <Text style={styles.footerNote}>
-            {library.length} series · {stats.chapters} chapters offline · {jobs.length} queue entries
-          </Text>
-        </Pressable>
-
-        <Banner tone="info">
-          Not affiliated with atsu.moe. Built as an offline-first companion for people who read
-          series more than once.
-        </Banner>
       </ScrollView>
     </Screen>
+  );
+}
+
+/** The label + one-line description that sits above a segmented control. */
+function LabelBlock({ label, hint }: { label: string; hint: string }) {
+  return (
+    <View style={{ marginBottom: spacing.sm }}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowHint}>{hint}</Text>
+    </View>
   );
 }
 
@@ -438,10 +346,12 @@ function InfoRow({
 function LinkRow({
   icon,
   label,
+  hint,
   onPress,
 }: {
   icon: IconName;
   label: string;
+  hint?: string;
   onPress: () => void;
 }) {
   return (
@@ -453,7 +363,10 @@ function LinkRow({
         style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.6 }]}
       >
         <Icon name={icon} size={16} color={colors.textDim} />
-        <Text style={styles.linkLabel}>{label}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.linkLabel}>{label}</Text>
+          {hint ? <Text style={styles.rowHint}>{hint}</Text> : null}
+        </View>
         <Icon name="open-outline" size={14} color={colors.textFaint} />
       </Pressable>
       <Divider />
@@ -514,7 +427,7 @@ const styles = makeStyles((colors) => ({
     gap: spacing.md,
     paddingVertical: spacing.md,
   },
-  linkLabel: { ...type.small, color: colors.text, fontWeight: '600', flex: 1 },
+  linkLabel: { ...type.small, color: colors.text, fontWeight: '600' },
   footerNote: {
     ...type.tiny,
     color: colors.textFaint,

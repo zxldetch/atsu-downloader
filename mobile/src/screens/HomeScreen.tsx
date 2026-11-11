@@ -87,9 +87,18 @@ export function HomeScreen() {
   const continueLabel = useCallback((entry: LibraryEntry) => {
     const reading = entry.reading;
     if (!reading) return `${entry.chapterCount} chapters`;
-    const number = reading.chapterId.match(/(?:ch|chapter)[-_]?([\d.]+)/i)?.[1];
+
+    // The chapter number is stored with the progress now; the old builds only
+    // had an opaque chapter id, so fall back to the library record, then to the
+    // id itself before giving up on the number.
+    const saved = entry.chapters?.[reading.chapterId];
+    const fromId = reading.chapterId.match(/(?:ch|chapter)[-_]?([\d.]+)/i)?.[1];
+    const number = reading.chapterNumber ?? saved?.chapterNumber ?? (fromId ? Number(fromId) : null);
+
     const percent = Math.round((reading.page / Math.max(1, reading.total)) * 100);
-    return `Ch. ${number ? formatChapterNumber(Number(number)) : '?'} · ${percent}%`;
+    const where = number != null && Number.isFinite(number) ? `Ch. ${formatChapterNumber(number)}` : 'Reading';
+    if (!reading.total) return where;
+    return `${where} · ${percent}%`;
   }, []);
 
   return (

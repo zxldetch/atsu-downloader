@@ -16,12 +16,6 @@ import type { Chapter, DownloadJob, MangaInfo, OutputFormat } from '../types';
 
 type ChapterFilter = 'all' | 'saved' | 'missing' | 'queued';
 
-const FORMATS: { key: OutputFormat; label: string }[] = [
-  { key: 'cbz', label: 'CBZ' },
-  { key: 'pdf', label: 'PDF' },
-  { key: 'images', label: 'Images' },
-];
-
 const STATUS_TEXT: Record<DownloadJob['status'], string> = {
   queued: 'Queued',
   downloading: 'Downloading…',
@@ -282,14 +276,15 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
 
   const startDownload = useCallback(() => {
     if (!manga) return;
-    const count = actions.enqueue(manga, selectedChapters, config.downloadFormat);
+    // One format, chosen for the user: a single CBZ per chapter.
+    const count = actions.enqueue(manga, selectedChapters, 'cbz');
     if (count === 0) {
       setMessage('Those chapters are already downloaded or in progress.');
       return;
     }
     setSelection(new Set());
     nav.go('shelf', { shelfTab: 'downloads' });
-  }, [actions, config.downloadFormat, manga, nav, selectedChapters]);
+  }, [actions, manga, nav, selectedChapters]);
 
   if (!manga) {
     return (
@@ -328,7 +323,7 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
               </Text>
               <Text style={styles.footerHint}>
                 {selection.size > 0
-                  ? `${selectedPages} pages · ${config.downloadFormat.toUpperCase()} · stays on this device`
+                  ? `${selectedPages} pages · CBZ · stays on this device`
                   : 'Tap chapters, or use a range'}
               </Text>
             </View>
@@ -496,19 +491,6 @@ export function MangaScreen({ mangaId }: { mangaId: string }) {
                 <Chip label="Clear" icon="close" onPress={clearSelection} />
               </View>
 
-              <View style={styles.formatRow}>
-                <Text style={styles.formatLabel}>Format</Text>
-                <View style={styles.chipRow}>
-                  {FORMATS.map((format) => (
-                    <Chip
-                      key={format.key}
-                      label={format.label}
-                      active={config.downloadFormat === format.key}
-                      onPress={() => actions.updateConfig({ downloadFormat: format.key })}
-                    />
-                  ))}
-                </View>
-              </View>
             </View>
             ) : null}
 
